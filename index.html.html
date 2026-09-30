@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>freshPika Ordner-Scanner (ohne KI)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--plum:#3b1f4a;--plum-2:#5a3270;--paper:#fbf8ff;--card:#fff;--ink:#221a2b;--muted:#6d6379;--line:#d6cfdf;--pika:#f6c945;--warn:#b5561c;--ok:#2f7d4f;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#1b1420;--card:#261d2d;--ink:#f1ecf5;--muted:#b0a5bb;--line:#43374d;--plum-2:#c9a4de}}
+:root[data-theme="dark"]{--paper:#1b1420;--card:#261d2d;--ink:#f1ecf5;--muted:#b0a5bb;--line:#43374d;--plum-2:#c9a4de}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;font-variant-numeric:tabular-nums}
+main{max-width:980px;margin:0 auto;padding:20px 16px 64px}
+h1{font-size:clamp(28px,6vw,42px);line-height:1.05;font-weight:800;margin:8px 0 6px;letter-spacing:-.02em}
+.lead{margin:0 0 18px;color:var(--muted);max-width:64ch}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pika);outline-offset:2px}
+.drop{background:var(--plum);color:#fff;border-radius:18px;padding:34px 20px;text-align:center;cursor:pointer}
+.drop.drag{outline:4px dashed var(--pika);outline-offset:4px}
+.drop strong{display:block;font-size:clamp(20px,4vw,26px);font-weight:800;margin-bottom:12px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btn{border:0;border-radius:999px;padding:11px 18px;font-weight:600;cursor:pointer;background:var(--pika);color:#2a2000}
+.btn.ghost{background:transparent;color:inherit;border:2px solid currentColor}
+.btn:disabled{opacity:.5;cursor:default}
+.status{margin:14px 0;color:var(--muted);min-height:1.5em}
+.status.err{color:var(--warn)}
+.photo{margin-top:26px}
+.photo h2{font-size:20px;margin:0 0 10px}
+.photo h2 small{font-weight:400;color:var(--muted);font-size:14px;margin-left:8px}
+.cards{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:84px 1fr;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.row>img{width:84px;border-radius:6px;display:block}
+.strip{width:100%;max-width:420px;border-radius:6px;display:block;margin:4px 0 8px;border:1px solid var(--line)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+.fields label{font-size:12px;color:var(--muted);display:flex;flex-direction:column}
+.fields input,.fields select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--paper);min-width:0;font-size:15px}
+.flag{font-size:13px;color:var(--warn);margin-top:4px}
+a.link{display:inline-block;margin-top:8px;padding:7px 14px;border-radius:999px;background:var(--plum);color:#fff;text-decoration:none;font-weight:600}
+.export{margin-top:34px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.export h2{margin:0 0 8px;font-size:20px}
+.export textarea{width:100%;min-height:180px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--paper);color:var(--ink);font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
+.hidden{display:none!important}
+.paste{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.paste input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--paper);color:var(--ink);font-size:14px}
+.btn.small{padding:6px 12px;font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Ordnerseite rein, Google-Links raus</h1>
+  <p class="lead">Ein Foto mit einer Karte oder eine ganze Ordnerseite, auch schief oder gedreht. Die Seite findet jede Karte, liest die Kartennummer und die Sprache und baut dir einen Google-Link im Format „cardmarket Name Set Nummer“. Den Cardmarket-Treffer kannst du danach mit Near Mint, Kartensprache und deutschen Händlern öffnen. Alles läuft im Browser, ohne KI.</p>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
+    <strong>Fotos hier reinziehen</strong>
+    <div class="actions">
+      <button class="btn" id="camBtn" type="button">Foto aufnehmen</button>
+      <button class="btn ghost" id="pickBtn" type="button">Bilder wählen</button>
+    </div>
+  </div>
+  <input type="file" id="camInput" accept="image/*" capture="environment" class="hidden">
+  <input type="file" id="pickInput" accept="image/*" multiple class="hidden">
+
+  <div class="status" id="status" aria-live="polite">Lade Texterkennung …</div>
+  <div id="results"></div>
+
+  <section class="export hidden" id="exportBox">
+    <h2>Alle Links</h2>
+    <textarea id="exportText" readonly></textarea>
+    <div class="actions" style="justify-content:flex-start;margin-top:10px">
+      <button class="btn" id="copyAll" type="button">Liste kopieren</button>
+      <button class="btn ghost" id="clearAll" type="button">Liste leeren</button>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+<script>
+const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
+const $ = s => document.querySelector(s);
+const statusEl = $("#status"), resultsEl = $("#results");
+const allCards = [];
+let worker = null, busy = false, photoNo = 0;
+
+function setStatus(t, err){ statusEl.textContent = t; statusEl.classList.toggle("err", !!err); }
+function canvas(w, h){ const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- libraries ---------- */
+function cvReady(){
+  return new Promise(res => {
+    const t0 = Date.now();
+    (function check(){
+      const c = window.cv;
+      if (c && c.Mat) return res(c);
+      if (c && typeof c.then === "function" && !c.__hooked){
+        c.__hooked = true;
+        c.then(m => { if (m && m.Mat){ window.cv = m; res(m); } });
+      } else if (c && !c.onRuntimeInitialized){
+        c.onRuntimeInitialized = () => res(window.cv);
+      }
+      if (Date.now() - t0 > 30000) return res(null);
+      setTimeout(check, 150);
+    })();
+  });
+}
+async function getWorker(){
+  if (!worker){
+    worker = await Tesseract.createWorker(["eng", "deu"]);
+  }
+  return worker;
+}
+(async () => {
+  try { await getWorker(); setStatus("Bereit. Füge Fotos hinzu."); }
+  catch(e){ setStatus("Texterkennung konnte nicht geladen werden. Prüf die Internetverbindung und lade die Seite neu.", true); }
+})();
+
+/* ---------- image helpers ---------- */
+async function decode(file){
+  try { return await createImageBitmap(file, {imageOrientation: "from-image"}); }
+  catch(e){ return await createImageBitmap(file); }
+}
+function scaledCanvas(img, max){
+  const s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = canvas(img.width * s, img.height * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return {c, s};
+}
+function rotate(c, deg){
+  const side = deg === 90 || deg === 270;
+  const o = canvas(side ? c.height : c.width, side ? c.width : c.height);
+  const g = o.getContext("2d"); g.translate(o.width / 2, o.height / 2); g.rotate(deg * Math.PI / 180);
+  g.drawImage(c, -c.width / 2, -c.height / 2); return o;
+}
+
+/* ---------- card detection (OpenCV) ---------- */
+function detectRects(cv, small){
+  const src = cv.imread(small), g = new cv.Mat(), e = new cv.Mat();
+  cv.cvtColor(src, g, cv.COLOR_RGBA2GRAY);
+  cv.GaussianBlur(g, g, new cv.Size(5, 5), 0);
+  cv.Canny(g, e, 40, 120);
+  const k = cv.Mat.ones(5, 5, cv.CV_8U); cv.dilate(e, e, k);
+  const cs = new cv.MatVector(), hi = new cv.Mat();
+  cv.findContours(e, cs, hi, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+  const A = small.width * small.height, found = [];
+  for (let i = 0; i < cs.size(); i++){
+    const c = cs.get(i), r = cv.minAreaRect(c);
+    const w = r.size.width, h = r.size.height, a = w * h, ar = Math.max(w, h) / Math.max(1, Math.min(w, h));
+    if (a > 0.015 * A && a < 0.8 * A && ar > 1.25 && ar < 1.6) found.push({cx: r.center.x, cy: r.center.y, w, h, angle: r.angle});
+    c.delete();
+  }
+  [src, g, e, k, cs, hi].forEach(m => m.delete());
+  found.sort((a, b) => b.w * b.h - a.w * a.h);
+  const out = [];
+  for (const r of found){
+    if (out.every(o => Math.hypot(r.cx - o.cx, r.cy - o.cy) > Math.min(r.w, r.h) * 0.4)) out.push(r);
+  }
+  // reading order: rows by y, then x
+  const hMed = out.length ? out.map(r => Math.min(r.w, r.h)).sort((a,b) => a-b)[out.length >> 1] : 1;
+  out.sort((a, b) => Math.abs(a.cy - b.cy) > hMed * 0.5 ? a.cy - b.cy : a.cx - b.cx);
+  return out;
+}
+function extractCard(img, r, f){
+  const cx = r.cx / f, cy = r.cy / f, w = r.w / f, h = r.h / f;
+  const s = Math.min(1.6, 1400 / Math.max(w, h));
+  const c = canvas(w * s, h * s), g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.translate(c.width / 2, c.height / 2); g.scale(s, s); g.rotate(-r.angle * Math.PI / 180);
+  g.drawImage(img, -cx, -cy);
+  return c.width > c.height ? rotate(c, 90) : c;
+}
+
+/* ---------- OCR helpers ---------- */
+function stripOf(card, y0, y1, x0, x1, targetW){
+  const W = card.width, H = card.height, sx = x0 * W, sy = y0 * H, sw = (x1 - x0) * W, sh = (y1 - y0) * H;
+  const k = targetW / sw, o = canvas(sw * k, sh * k), g = o.getContext("2d");
+  g.imageSmoothingQuality = "high"; g.drawImage(card, sx, sy, sw, sh, 0, 0, o.width, o.height);
+  const d = g.getImageData(0, 0, o.width, o.height), p = d.data, vals = new Uint8Array(p.length / 4);
+  for (let i = 0, j = 0; i < p.length; i += 4, j++) vals[j] = Math.max(p[i], p[i+1], p[i+2]);
+  const sorted = Array.from(vals).sort((a, b) => a - b);
+  const lo = sorted[Math.floor(sorted.length * 0.03)], hiV = sorted[Math.floor(sorted.length * 0.9)];
+  const span = Math.max(1, hiV - lo);
+  for (let i = 0, j = 0; i < p.length; i += 4, j++){
+    const v = Math.max(0, Math.min(255, (vals[j] - lo) * 255 / span));
+    p[i] = p[i+1] = p[i+2] = v;
+  }
+  g.putImageData(d, 0, 0); return o;
+}
+const NUM_RE = /((?:[S5]\s?V)?\s?[0-9OoIl|]{1,3})\s?[\/\\]\s?((?:[S5]\s?V)?\s?[0-9OoIl]{2,3})/;
+function cleanPart(s){ return s.replace(/\s/g, "").replace(/^5V/i, "SV").replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").toUpperCase(); }
+function findNumber(text){
+  const m = text.match(NUM_RE); if (!m) return null;
+  const a = cleanPart(m[1]), b = cleanPart(m[2]);
+  if (!/^(SV)?\d{1,3}$/.test(a) || !/^(SV)?\d{2,3}$/.test(b)) return null;
+  return a + "/" + b;
+}
+async function ocr(img, params){
+  const w = await getWorker();
+  await w.setParameters(Object.assign({tessedit_char_whitelist: "", tessedit_pageseg_mode: "6"}, params || {}));
+  const r = await w.recognize(img);
+  return {text: r.data.text || "", conf: r.data.confidence || 0};
+}
+function invert(c){
+  const g = c.getContext("2d"), d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  for (let i = 0; i < p.length; i += 4){ p[i] = 255 - p[i]; p[i+1] = 255 - p[i+1]; p[i+2] = 255 - p[i+2]; }
+  g.putImageData(d, 0, 0); return c;
+}
+function findCode(text){
+  const m = text.match(/\b(s[vV]?\s?\d{1,2}\s?[a-zA-Z]?)\b/) || text.match(/\b([A-Z]{3})\b/);
+  return m ? m[1].replace(/\s/g, "").replace(/^S/, "s").replace(/^sV/, "sv") : "";
+}
+function guessLang(text){
+  const t = text.toLowerCase();
+  const de = (t.match(/schw[aä]che|resistenz|r[uü]ckzug|m[uü]nze|kopf|schaden|basis|phase|entwickelt|aktive/g) || []).length;
+  const en = (t.match(/weakness|resistance|retreat|coin|heads|damage|basic|stage|evolves|active/g) || []).length;
+  if (de > en && de > 0) return {lang: "de", sure: true};
+  if (en > de && en > 0) return {lang: "en", sure: true};
+  return {lang: "ja", sure: false};
+}
+
+/* ---------- card lookup (TCGdex, free and open) ---------- */
+const setsCache = {};
+function getSets(lang){
+  if (!setsCache[lang]) setsCache[lang] = fetch(`https://api.tcgdex.net/v2/${lang}/sets`).then(r => r.json()).catch(() => []);
+  return setsCache[lang];
+}
+async function lookup(lang, number){
+  if (!["de", "en"].includes(lang) || !number) return [];
+  const [n, d] = number.split("/"); if (!n || !d) return [];
+  const sv = /^SV/i.test(n), official = parseInt(d.replace(/\D/g, ""), 10);
+  const sets = (await getSets(lang)).filter(s => s.cardCount && s.cardCount.official === official && (sv ? /sv$/i.test(s.id) : !/sv$/i.test(s.id))).slice(0, 8);
+  const localId = sv ? n.toUpperCase() : String(parseInt(n, 10));
+  const hits = await Promise.all(sets.map(s =>
+    fetch(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(s.id)}/${encodeURIComponent(localId)}`)
+      .then(r => r.ok ? r.json() : null).then(c => c && c.name ? {name: c.name, set: s.name} : null).catch(() => null)));
+  return hits.filter(Boolean);
+}
+
+/* ---------- pipeline ---------- */
+async function processFiles(files){
+  if (!files.length || busy) return;
+  busy = true; ["#camBtn", "#pickBtn"].forEach(s => $(s).disabled = true);
+  try {
+    setStatus("Lade Bilderkennung …");
+    const cv = await cvReady();
+    for (const f of files) await processPhoto(f, cv);
+    setStatus(`Fertig. ${allCards.length} Karten in der Liste.`);
+  } catch(e){
+    console.error(e); setStatus("Da ist etwas schiefgelaufen. Versuch ein anderes Foto.", true);
+  } finally {
+    busy = false; ["#camBtn", "#pickBtn"].forEach(s => $(s).disabled = false);
+  }
+}
+
+async function processPhoto(file, cv){
+  const n = ++photoNo;
+  const sec = document.createElement("section"); sec.className = "photo";
+  sec.innerHTML = `<h2>Foto ${n}<small></small></h2><div class="cards"></div>`;
+  resultsEl.append(sec);
+  const sub = sec.querySelector("small"), list = sec.querySelector(".cards");
+  let img; try { img = await decode(file); } catch(e){ sub.textContent = "Bild ließ sich nicht öffnen."; return; }
+
+  setStatus(`Foto ${n}: suche Karten …`);
+  let cards = [];
+  if (cv){
+    const {c: small, s} = scaledCanvas(img, 1400);
+    try { cards = detectRects(cv, small).map(r => extractCard(img, r, s)); } catch(e){ console.warn(e); }
+  }
+  if (!cards.length){ // single card photo or detection failed: use the whole image
+    const {c} = scaledCanvas(img, 1600);
+    cards = [c.width > c.height ? rotate(c, 90) : c];
+  }
+  sub.textContent = `${cards.length} Karte${cards.length === 1 ? "" : "n"} gefunden`;
+
+  for (let i = 0; i < cards.length; i++){
+    setStatus(`Foto ${n}: lese Karte ${i + 1} von ${cards.length} …`);
+    await readCard(cards[i], list);
+  }
+}
+
+async function readCard(card, list){
+  // try both upright directions; the one where a card number shows up wins
+  let best = null;
+  for (const deg of [0, 180]){
+    const c = deg ? rotate(card, 180) : card;
+    const st = stripOf(c, 0.84, 0.975, 0, 0.66, 1600);
+    const r = await ocr(st, {tessedit_char_whitelist: "0123456789/SV", tessedit_pageseg_mode: "11"});
+    const num = findNumber(r.text);
+    const cand = {c, st, num, conf: r.conf};
+    if (num){ best = cand; break; }
+    if (!best || cand.conf > best.conf) best = cand;
+  }
+  const {c} = best;
+  const langRes = await ocr(stripOf(c, 0.74, 0.92, 0, 1, 1800));
+  const lg = guessLang(langRes.text);
+
+  const codeRes = await ocr(invert(stripOf(c, 0.84, 0.975, 0, 0.4, 1200)), {tessedit_char_whitelist: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", tessedit_pageseg_mode: "11"});
+  const code = findCode(codeRes.text);
+  const data = {name: "", number: best.num || "", set: "", code, lang: lg.lang, langSure: lg.sure, numSure: !!best.num, options: []};
+  const item = {data, thumb: c.toDataURL("image/jpeg", 0.8), strip: stripOf(c, 0.84, 0.975, 0, 0.66, 900).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
+  item.el.className = "row";
+  allCards.push(item); list.append(item.el);
+  await refreshLookup(item);
+}
+
+async function refreshLookup(item){
+  const d = item.data;
+  d.options = await lookup(d.lang, d.number);
+  if (d.options.length && !d.nameTouched){ d.name = d.options[0].name; d.set = d.options[0].set; }
+  render(item); renderExport();
+}
+
+/* ---------- output ---------- */
+function googleUrl(d){
+  const parts = ["cardmarket", d.name, d.code || d.set, d.number];
+  return "https://www.google.de/search?q=" + encodeURIComponent(parts.filter(Boolean).join(" "));
+}
+
+const CM_LANG = {de: "3", en: "1", ja: "7", zh: "6"};
+function cmWithFilters(url, lang){
+  try {
+    const u = new URL(url.trim());
+    if (!/cardmarket\.com$/.test(u.hostname)) return null;
+    u.search = "";
+    u.searchParams.set("sellerCountry", "7");
+    u.searchParams.set("language", CM_LANG[lang] || "1");
+    u.searchParams.set("minCondition", "2");
+    return u.toString();
+  } catch(e){ return null; }
+}
+
+function render(item){
+  const d = item.data;
+  const langOpts = Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === d.lang ? " selected" : ""}>${v}</option>`).join("");
+  const setOpts = d.options.length > 1
+    ? `<label>Treffer<select data-f="pick">${d.options.map((o, i) => `<option value="${i}"${o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
+  const flags = [];
+  if (!d.numSure) flags.push("Nummer nicht erkannt – bitte aus dem Ausschnitt abtippen");
+  if (!d.langSure) flags.push("Sprache geraten");
+  item.el.innerHTML = `
+    <img src="${item.thumb}" alt="">
+    <div>
+      <img class="strip" src="${item.strip}" alt="Ausschnitt mit Kartennummer">
+      <div class="fields">
+        <label>Kartenname<input data-f="name" value="${esc(d.name)}" placeholder="optional"></label>
+        <label>Nummer<input data-f="number" value="${esc(d.number)}" placeholder="z. B. 250/190"></label>
+        <label>Set-Kürzel<input data-f="code" value="${esc(d.code)}" placeholder="z. B. s4a"></label>
+        <label>Sprache<select data-f="lang">${langOpts}</select></label>
+        ${setOpts}
+      </div>
+      ${flags.length ? `<div class="flag">${flags.join(" · ")}</div>` : ""}
+      <a class="link" href="${esc(googleUrl(d))}" target="_blank" rel="noopener">Bei Google suchen</a>
+      <div class="paste">
+        <input type="url" data-cm placeholder="Cardmarket-Link aus Google hier einfügen" aria-label="Cardmarket-Link">
+        <button class="btn small" type="button" data-cmgo>Mit Filtern öffnen</button>
+      </div>
+    </div>`;
+  item.el.querySelector("[data-cmgo]").addEventListener("click", () => {
+    const inp = item.el.querySelector("[data-cm]"), u = cmWithFilters(inp.value, d.lang);
+    if (!u){ inp.setCustomValidity("Kein Cardmarket-Link"); inp.reportValidity(); return; }
+    inp.setCustomValidity(""); window.open(u, "_blank", "noopener");
+  });
+  item.el.querySelectorAll("[data-f]").forEach(el => el.addEventListener("change", async () => {
+    const f = el.dataset.f;
+    if (f === "pick"){ const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.nameTouched = true; render(item); renderExport(); return; }
+    d[f] = el.value.trim();
+    if (f === "name" || f === "set") d.nameTouched = true;
+    if (f === "number"){ d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
+    if (f === "lang") d.langSure = true;
+    if (f === "number" || f === "lang"){ d.nameTouched = false; await refreshLookup(item); }
+    else { render(item); renderExport(); }
+  }));
+}
+
+function renderExport(){
+  $("#exportBox").classList.toggle("hidden", !allCards.length);
+  $("#exportText").value = allCards.map(({data: d}) =>
+    [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], googleUrl(d)].join(" | ")).join("\n");
+}
+
+/* ---------- inputs ---------- */
+$("#camBtn").addEventListener("click", e => { e.stopPropagation(); $("#camInput").click(); });
+$("#pickBtn").addEventListener("click", e => { e.stopPropagation(); $("#pickInput").click(); });
+$("#drop").addEventListener("click", () => $("#pickInput").click());
+$("#drop").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $("#pickInput").click(); } });
+["#camInput", "#pickInput"].forEach(s => $(s).addEventListener("change", e => { processFiles([...e.target.files]); e.target.value = ""; }));
+const drop = $("#drop");
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); processFiles([...e.dataTransfer.files].filter(f => f.type.startsWith("image/"))); });
+document.addEventListener("paste", e => { const f = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith("image/")); if (f.length) processFiles(f); });
+$("#copyAll").addEventListener("click", async () => {
+  const t = $("#exportText");
+  try { await navigator.clipboard.writeText(t.value); } catch(e){ t.select(); document.execCommand("copy"); }
+  setStatus("Liste kopiert.");
+});
+$("#clearAll").addEventListener("click", () => { allCards.length = 0; photoNo = 0; resultsEl.innerHTML = ""; renderExport(); setStatus("Bereit. Füge Fotos hinzu."); });
+</script>
+</body>
+</html>
