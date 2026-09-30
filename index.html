@@ -37,6 +37,7 @@ button,input,select{font:inherit;color:inherit}
 .tile a.cm{display:block;text-align:center;margin-top:8px;padding:9px 12px;border-radius:999px;background:var(--ok);color:#fff;text-decoration:none;font-weight:600}
 .tile div.cm{margin-top:8px;padding:8px 12px;border-radius:999px;text-align:center;font-size:14px;border:1px dashed var(--line);color:var(--muted)}
 .tile div.cm.wait{border-style:solid}
+.tile .hint{font-size:12px;color:var(--muted);line-height:1.35}
 .tile button.cm.get{margin-top:8px;padding:9px 12px;border-radius:999px;border:0;background:var(--pika);color:#2a2000;font-weight:600;cursor:pointer}
 .tile .hint{font-size:12px;color:var(--muted)}
 .tile a.google{display:block;text-align:center;padding:7px 12px;border-radius:999px;border:2px solid var(--plum-2);color:var(--plum-2);text-decoration:none;font-weight:600;font-size:14px}
@@ -116,6 +117,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
       <button class="btn" id="excelBtn" type="button">Als Excel speichern</button>
       <button class="btn ghost" id="copyAll" type="button">Liste kopieren</button>
       <button class="btn ghost" id="clearAll" type="button">Liste leeren</button>
+      <button class="btn ghost" id="memExport" type="button">Gemerkte Links sichern</button>
     </div>
   </section>
 </main>
@@ -372,7 +374,7 @@ async function lookup(lang, number){
       const e = await get("en", st.id); if (e && e.name) enName = e.name;
       const es = (enSets || []).find(x => x.id === st.id); if (es) enSet = es.name;
     }
-    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, "")};
+    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id};
   }));
   return hits.filter(Boolean);
 }
@@ -579,7 +581,8 @@ async function readCard(card, list, pos){
 async function refreshLookup(item){
   const d = item.data;
   d.options = await lookup(d.lang, d.number);
-  if (d.options.length && !d.nameTouched){ const o = d.options[0]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; }
+  if (d.options.length && !d.nameTouched){ const o = d.options[0]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; }
+  if (!d.options.length) d.setId = "";
   render(item); renderExport();
   findCardmarket(item);
 }
@@ -611,13 +614,15 @@ async function findCardmarket(item){
   const d = item.data;
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
+  d.cmPrices = pricesLink(d);
+  if (d.cmPrices && !cseId()){ d.cmState = "prices"; render(item); renderExport(); return; }
   if (!cseId() || !d.number) return;
   d.cmState = "searching"; render(item);
   const results = await cseSearch(searchQuery(d));
   const hit = (results || []).map(r => r.unescapedUrl || r.url || "").find(u => /cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\//i.test(u));
   d.cmFound = hit ? hit.replace(/cardmarket\.com\/[a-z]{2}\//i, "cardmarket.com/de/").split("?")[0] : "";
   if (d.cmFound) memSet(d, d.cmFound);
-  d.cmState = results === null ? "error" : (hit ? "found" : "none");
+  d.cmState = results === null ? (d.cmPrices ? "prices" : "error") : (hit ? "found" : (d.cmPrices ? "prices" : "none"));
   if (hit){
     const card = decodeURIComponent(slugOf(d).split("/")[1] || "");
     const num = parseInt((d.number || "").split("/")[0].replace(/\D/g, ""), 10);
@@ -628,6 +633,16 @@ async function findCardmarket(item){
   render(item); renderExport();
 }
 function cmLink(d){ return d.cmFound ? cmWithFilters(d.cmFound, d.lang) : ""; }
+
+/* ---------- direct Cardmarket link for English/German cards (no search needed) ---------- */
+// TCGdex set id -> pokemontcg.io set id. prices.pokemontcg.io/cardmarket/<id>-<nr> forwards straight to the Cardmarket product page.
+const PTCG_SETS = {"base2":"base2","basep":"basep","base3":"base3","base4":"base4","base5":"base5","gym1":"gym1","gym2":"gym2","neo1":"neo1","neo2":"neo2","si1":"si1","neo3":"neo3","neo4":"neo4","lc":"base6","ecard1":"ecard1","bog":"bp","ecard2":"ecard2","ecard3":"ecard3","ex1":"ex1","ex2":"ex2","np":"np","ex3":"ex3","ex4":"ex4","ex5":"ex5","tk-ex-latia":"tk1a","tk-ex-latio":"tk1b","ex6":"ex6","pop1":"pop1","ex7":"ex7","ex8":"ex8","ex9":"ex9","pop2":"pop2","ex10":"ex10","ex11":"ex11","ex12":"ex12","tk-ex-m":"tk2b","tk-ex-p":"tk2a","pop3":"pop3","ex13":"ex13","pop4":"pop4","ex14":"ex14","ex15":"ex15","ex16":"ex16","pop5":"pop5","dpp":"dpp","dp1":"dp1","dp2":"dp2","pop6":"pop6","dp3":"dp3","dp4":"dp4","pop7":"pop7","dp5":"dp5","dp6":"dp6","pop8":"pop8","dp7":"dp7","pl1":"pl1","pop9":"pop9","pl2":"pl2","pl3":"pl3","pl4":"pl4","ru1":"ru1","hgssp":"hsp","col1":"col1","bw1":"bw1","bwp":"bwp","2011bw":"mcd11","bw2":"bw2","bw3":"bw3","bw4":"bw4","bw5":"bw5","2012bw":"mcd12","bw6":"bw6","dv1":"dv1","bw7":"bw7","bw8":"bw8","bw9":"bw9","bw10":"bw10","xyp":"xyp","bw11":"bw11","xy0":"xy0","xy1":"xy1","xy2":"xy2","2014xy":"mcd14","xy3":"xy3","xy4":"xy4","xy5":"xy5","dc1":"dc1","xy6":"xy6","xy7":"xy7","xy8":"xy8","2015xy":"mcd15","xy9":"xy9","g1":"g1","xy10":"xy10","xy11":"xy11","2016xy":"mcd16","xy12":"xy12","sm1":"sm1","smp":"smp","sm2":"sm2","2017sm":"mcd17","sm3":"sm3","sm3.5":"sm35","sm4":"sm4","sm5":"sm5","sm6":"sm6","sm7":"sm7","sm7.5":"sm75","2018sm":"mcd18","sm8":"sm8","sm9":"sm9","det1":"det1","sm10":"sm10","sm11":"sm11","sma":"sma","sm115":"sm115","2019sm":"mcd19","sm12":"sm12","swshp":"swshp","swsh1":"swsh1","swsh2":"swsh2","swsh3":"swsh3","swsh3.5":"swsh35","swsh4":"swsh4","2021swsh":"mcd21","swsh4.5":"swsh45","swsh4.5sv":"swsh45sv","swsh5":"swsh5","swsh6":"swsh6","swsh7":"swsh7","cel25cc":"cel25c","cel25":"cel25","swsh8":"swsh8","swsh9tg":"swsh9tg","swsh9":"swsh9","swsh10":"swsh10","swsh10tg":"swsh10tg","swsh10.5":"pgo","2022swsh":"mcd22","swsh11":"swsh11","swsh11tg":"swsh11tg","swsh12":"swsh12","swsh12tg":"swsh12tg","swsh12.5":"swsh12pt5","swsh12.5gg":"swsh12pt5gg","sv01":"sv1","sv02":"sv2","sv03":"sv3","sv03.5":"sv3pt5","sv04":"sv4","sv04.5":"sv4pt5","sv05":"sv5","sv06":"sv6","sv06.5":"sv6pt5","sv07":"sv7","sv08":"sv8","sv08.5":"sv8pt5","sv09":"sv9","sv10":"sv10","sv10.5b":"zsv10pt5","sv10.5w":"rsv10pt5","me01":"me1","me02":"me2","me02.5":"me2pt5","me03":"me3","me04":"me4","me05":"me5","30th":"me55","base1":"base1","hgss1":"hgss1","hgss2":"hgss2","hgss3":"hgss3","hgss4":"hgss4","svp":"svp","sve":"sve"};
+function pricesLink(d){
+  if (!(d.lang === "de" || d.lang === "en") || !d.setId || !PTCG_SETS[d.setId] || !d.number) return "";
+  const n = d.number.split("/")[0].toUpperCase();
+  const local = /^[A-Z]+\d+$/.test(n) ? n : String(parseInt(n, 10));
+  return local && local !== "NaN" ? `https://prices.pokemontcg.io/cardmarket/${PTCG_SETS[d.setId]}-${local}` : "";
+}
 
 /* ---------- link memory (per card, stays in this browser) ---------- */
 function cardKey(d){
@@ -718,6 +733,7 @@ function render(item){
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
+  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(d.cmPrices)}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Direkt zur Kartenseite. Filter (Near Mint, Sprache, Deutschland) dort einstellen – oder die Adresse dort kopieren und zurückkommen, dann merkt sich die Seite den Link mit Filtern.</div>`;
   else if (d.cmState === "searching") cm = `<div class="cm wait">Suche Cardmarket-Link …</div>`;
   else if (d.cmState === "none") cm = `<div class="cm miss">Kein Cardmarket-Treffer</div>`;
   else if (d.cmState === "error") cm = `<div class="cm miss">Cardmarket-Helfer nicht erreichbar</div>`;
@@ -753,6 +769,7 @@ function render(item){
         </div>
       </div>
     </details>`;
+  item.el.querySelector("[data-prices]")?.addEventListener("click", () => { awaiting = item; });
   item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
     awaiting = item; render(item);
     window.open(googleUrl(d), "_blank", "noopener");
@@ -767,7 +784,7 @@ function render(item){
   });
   item.el.querySelectorAll("[data-f]").forEach(el => el.addEventListener("change", async () => {
     const f = el.dataset.f;
-    if (f === "pick"){ const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.nameTouched = true; render(item); renderExport(); findCardmarket(item); return; }
+    if (f === "pick"){ const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; render(item); renderExport(); findCardmarket(item); return; }
     d[f] = el.value.trim();
     if (f === "name"){ d.nameTouched = true; d.enName = d.name; }
     if (f === "code") d.codeSure = true;
@@ -782,8 +799,27 @@ function render(item){
 function renderExport(){
   $("#exportBox").classList.toggle("hidden", !allCards.length);
   $("#exportText").value = allCards.map(({data: d}) =>
-    [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], cmLink(d) || "-", googleUrl(d)].join(" | ")).join("\n");
+    [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], cmLink(d) || d.cmPrices || "-", googleUrl(d)].join(" | ")).join("\n");
 }
+
+/* ---------- shared link list: links.json next to index.html (e.g. on GitHub) ---------- */
+(async () => {
+  if (!/^https?:/.test(location.protocol)) return;
+  try {
+    const r = await fetch("links.json", {cache: "no-store"}); if (!r.ok) return;
+    const shared = await r.json();
+    const m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}");
+    let added = 0; for (const [k, v] of Object.entries(shared)) if (!m[k]){ m[k] = v; added++; }
+    localStorage.setItem("fp_cm_memory", JSON.stringify(m));
+    if (added) console.log(added + " Links aus links.json übernommen");
+  } catch(e){}
+})();
+$("#memExport").addEventListener("click", () => {
+  let m = {}; try { m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"); } catch(e){}
+  const blob = new Blob([JSON.stringify(m, null, 1)], {type: "application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "links.json"; a.click();
+  setStatus(`${Object.keys(m).length} gemerkte Links als links.json gespeichert. Lege die Datei neben index.html auf GitHub, dann kennt jedes Gerät diese Links.`);
+});
 
 /* ---------- setup ---------- */
 $("#cseId").value = cseId();
@@ -818,7 +854,7 @@ document.addEventListener("paste", e => { const f = [...(e.clipboardData?.files 
 $("#excelBtn").addEventListener("click", () => {
   if (!window.XLSX){ setStatus("Excel-Export konnte nicht geladen werden. Internet prüfen und Seite neu laden.", true); return; }
   const head = ["Nr.", "Kartenname", "Set-Kürzel", "Set", "Kartennummer", "Sprache", "Zustand", "Cardmarket (NM, Sprache, DE-Händler)", "Google-Suche", "Cardmarket-Seite"];
-  const rows = allCards.map(({data: d}, i) => [i + 1, d.name, d.code, d.set, d.number, LANGS[d.lang], "Near Mint", cmLink(d), googleUrl(d), d.cmFound || ""]);
+  const rows = allCards.map(({data: d}, i) => [i + 1, d.name, d.code, d.set, d.number, LANGS[d.lang], "Near Mint", cmLink(d) || d.cmPrices || "", googleUrl(d), d.cmFound || d.cmPrices || ""]);
   const ws = XLSX.utils.aoa_to_sheet([head, ...rows]);
   rows.forEach((r, i) => {
     [[7, r[7], "Cardmarket öffnen"], [8, r[8], "Google öffnen"], [9, r[9], r[9]]].forEach(([col, url, label]) => {
