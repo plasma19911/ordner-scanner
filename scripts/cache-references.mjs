@@ -29,7 +29,7 @@ const task=async()=>{while(next<images.length){
   if(!r.ok || !/^image\//.test(r.headers.get('content-type') || ''))throw new Error('Image unavailable');
   const original=Buffer.from(await r.arrayBuffer());
   if(original.length>4000000)throw new Error('Reference image too large');
-  const data=await sharp(original).resize({height:1000,withoutEnlargement:true}).webp({quality:92}).toBuffer();
+  const data=await sharp(original).resize({height:800,withoutEnlargement:true}).webp({quality:82}).toBuffer();
   totalBytes+=data.length;if(totalBytes>64000000)throw new Error('Reference collection exceeded 64 MB');
   const ext='webp';
   const path='reference-images/'+createHash('sha256').update(url).digest('hex').slice(0,24)+'.'+ext;
