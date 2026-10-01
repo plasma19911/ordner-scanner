@@ -2,12 +2,13 @@
   "name": "ordner-scanner",
   "private": true,
   "scripts": {
-    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs",
+    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs && node tests/card-review.cjs",
     "build": "node build.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
+    "jsdom": "^30.1.1",
     "wrangler": "4.145.0"
   }
 }
