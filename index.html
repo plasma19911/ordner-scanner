@@ -214,6 +214,35 @@ function rotate(c, deg){
 }
 
 /* ---------- card detection (OpenCV) ---------- */
+// single-card photos: card inside a toploader / sleeve. Collect plausible card rectangles with several edge settings.
+function singleCandidates(cv, small){
+  const src = cv.imread(small), g = new cv.Mat();
+  cv.cvtColor(src, g, cv.COLOR_RGBA2GRAY); cv.GaussianBlur(g, g, new cv.Size(5, 5), 0);
+  const A = small.width * small.height, found = [];
+  for (const [lo, hi] of [[40, 120], [25, 75], [60, 180]]){
+    for (const k of [3, 5]){
+      const e = new cv.Mat(); cv.Canny(g, e, lo, hi);
+      const ker = cv.Mat.ones(k, k, cv.CV_8U); cv.dilate(e, e, ker);
+      const cs = new cv.MatVector(), hi2 = new cv.Mat();
+      cv.findContours(e, cs, hi2, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      for (let i = 0; i < cs.size(); i++){
+        const c = cs.get(i), r = cv.minAreaRect(c), w = r.size.width, h = r.size.height, a = w * h;
+        const ar = Math.max(w, h) / Math.max(1, Math.min(w, h));
+        if (a > 0.12 * A && a < 0.85 * A && ar > 1.28 && ar < 1.52){
+          const fill = cv.contourArea(c) / a;
+          found.push({cx: r.center.x, cy: r.center.y, w, h, angle: r.angle, score: a / A * (Math.abs(ar - 1.397) < 0.03 ? 1 : 0.5) * (0.4 + 0.6 * fill)});
+        }
+        c.delete();
+      }
+      [e, ker, cs, hi2].forEach(m => m.delete());
+    }
+  }
+  [src, g].forEach(m => m.delete());
+  found.sort((a, b) => b.score - a.score);
+  const out = [];
+  for (const r of found) if (out.every(o => Math.hypot(r.cx - o.cx, r.cy - o.cy) > 25 || Math.abs(r.w * r.h - o.w * o.h) > 0.08 * o.w * o.h)) out.push(r);
+  return out.slice(0, 4);
+}
 function detectRects(cv, small){
   const src = cv.imread(small), g = new cv.Mat(), e = new cv.Mat();
   cv.cvtColor(src, g, cv.COLOR_RGBA2GRAY);
@@ -282,22 +311,34 @@ function stripOf(card, y0, y1, x0, x1, targetW, raw){
   }
   g.putImageData(d, 0, 0); return o;
 }
-const NUM_RE = /((?:[S5]?\s?V)?\s?[0-9OoIl|]{1,3})\s?[\/\\]\s?((?:[S5]?\s?V)?\s?[0-9OoIl]{2,3})/;
+const NUM_RE = /((?:[A-Z5]{1,3}\s?)?[0-9OoIl|]{1,3})\s?[\/\\]\s?((?:[A-Z5]{1,3}\s?)?[0-9OoIl]{2,3})/;
+const NUM_RE_G = new RegExp(NUM_RE.source, "g");
 let knownTotals = null;
 function getKnownTotals(){
   if (!knownTotals) knownTotals = Promise.all(["en", "ja"].map(getSets)).then(([a, b]) => {
-    const t = new Set(); [...a, ...b].forEach(x => x.cardCount && t.add(x.cardCount.official)); return t;
+    const t = new Set(); [...a, ...b].forEach(x => x.cardCount && x.cardCount.official > 0 && x.cardCount.official < 400 && t.add(x.cardCount.official)); return t;
   }).catch(() => new Set());
   return knownTotals;
 }
-function cleanPart(s){ return s.replace(/\s/g, "").replace(/^(5V|V)/i, "SV").replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").toUpperCase(); }
+function cleanPart(s){
+  s = s.replace(/\s/g, "").toUpperCase().replace(/^(5V|V)(?=\d)/, "SV").replace(/^6G/, "GG").replace(/^7G/, "TG");
+  const m = s.match(/^([A-Z]*)(.*)$/);
+  return m[1] + m[2].replace(/O/g, "0").replace(/[IL|]/g, "1");
+}
+function findNumbers(text){
+  const out = [];
+  for (const m of text.matchAll(NUM_RE_G)){ const n = findNumber(m[0]); if (n) out.push(n); }
+  return out;
+}
 function findNumber(text){
   const m = text.match(NUM_RE); if (!m) return null;
   let a = cleanPart(m[1]), b = cleanPart(m[2]);
-  if (!/^(SV)?\d{1,3}$/.test(a) || !/^(SV)?\d{2,3}$/.test(b)) return null;
-  if (/^SV/.test(a) !== /^SV/.test(b)){ // SV only makes sense on both sides
-    if (/^SV/.test(b)) a = "SV" + a.replace(/^SV/, ""); else return null;
-  }
+  const known = /^(SV|GG|TG|RC|H|SH)$/;
+  const pa = (a.match(/^[A-Z]*/) || [""])[0], pb = (b.match(/^[A-Z]*/) || [""])[0];
+  if ((pa && !known.test(pa)) || (pb && !known.test(pb))){ a = a.replace(/^[A-Z]+/, ""); b = b.replace(/^[A-Z]+/, ""); }
+  if (!/^([A-Z]{1,2})?\d{1,3}$/.test(a) || !/^([A-Z]{1,2})?\d{2,3}$/.test(b)) return null;
+  const pA = (a.match(/^[A-Z]*/) || [""])[0], pB = (b.match(/^[A-Z]*/) || [""])[0];
+  if (pA !== pB){ if (pB && !pA) a = pB + a; else return null; }   // prefix belongs on both sides
   if (/^SV/.test(a)) a = "SV" + a.slice(2).padStart(3, "0");
   return a + "/" + b;
 }
@@ -313,11 +354,19 @@ function invert(c){
   g.putImageData(d, 0, 0); return c;
 }
 function findCode(text){
-  const m = text.match(/(?:^|\s)(s\s?v?\s?\d{1,2}\s?[a-z]?)(?:\s|$)/);
+  const m = text.match(/(?:^|\s)(s\s?v?\s?\d{1,2}\s?[a-z]?)(?:\s|$)/) || text.match(/(?:^|\s)(L[1-3]|LL|DP\d|DPt\d|PT\d|BW\d{1,2}|XY\d{1,2}|SM\d{1,2}[a-z]?|S\d{1,2}[a-z]?|SV\d{1,2}[a-z]?)(?:\s|$)/);
   if (m) return m[1].replace(/\s/g, "");
   const EN_CODES = ["SVI","PAL","OBF","MEW","PAR","PAF","TEF","TWM","SFA","SCR","SSP","PRE","JTG","DRI","BLK","WHT","MEG","PFL"];
   const u = (text.match(/[A-Z]{3}/g) || []).find(x => EN_CODES.includes(x));
   return u || "";
+}
+async function ocrLines(img, params, w){
+  w = w || await getWorker();
+  await w.setParameters(Object.assign({tessedit_char_whitelist: "", tessedit_pageseg_mode: "11"}, params || {}));
+  const r = await w.recognize(img, {}, {text: true, blocks: true});
+  const lines = [];
+  (r.data.blocks || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => lines.push({text: l.text || "", h: l.bbox.y1 - l.bbox.y0, y: l.bbox.y0}))));
+  return {text: r.data.text || "", lines, conf: r.data.confidence || 0};
 }
 function guessLang(text){
   const t = text.toLowerCase();
@@ -369,7 +418,7 @@ function matchAsianName(text){
     for (let run of runs){
       for (const [script, list] of [["ja", CARD_NAMES.ja], ["zh", CARD_NAMES.zh]]){
         for (const nm of list){
-          if (nm.length < 2) continue;
+          if (nm.length < 3) continue;
           let d = Infinity;
           for (let st = 0; st <= Math.max(0, run.length - nm.length); st++) d = Math.min(d, lev(run.substr(st, nm.length), nm));
           d += Math.max(0, nm.length - run.length);
@@ -380,18 +429,26 @@ function matchAsianName(text){
       }
     }
   }
+  if (best && best.script === "ja"){
+    const flat = text.replace(/\s/g, "");
+    for (const [jp] of OWNERS){ const at = flat.indexOf(jp); if (at >= 0 && !best.local.startsWith(jp) && flat.indexOf(best.local.replace(/^(ガラル|アローラ|ヒスイ|パルデア)/, "")) > at){ best.local = jp + best.local; best.en = englishFor(best.local); break; } }
+  }
   if (best && best.en){ const suf = (text.match(/(VMAX|VSTAR|GX|ex)(?![a-z])/) || [])[1]; if (suf && !best.en.endsWith(suf)) best.en += " " + suf; }
   return best;
 }
 // English name for a Japanese/Chinese card name, if it contains a Pokémon name: "ガケガニex" -> "Klawf ex"
+const OWNERS = [["エリカの", "Erika's "], ["カツラの", "Blaine's "], ["タケシの", "Brock's "], ["カスミの", "Misty's "], ["マチスの", "Lt. Surge's "], ["ナツメの", "Sabrina's "],
+  ["キョウの", "Koga's "], ["サカキの", "Giovanni's "], ["ロケット団の", "Rocket's "], ["R団の", "Rocket's "], ["わるい", "Dark "], ["ひかる", "Shining "], ["やさしい", "Light "]];
 function englishFor(local){
+  let owner = "";
+  for (const [jp, en] of OWNERS) if (local.startsWith(jp)){ owner = en; break; }
   let hit = null;
   for (const row of NAMES) for (let k = 1; k <= 3; k++){ const nm = row[k]; if (nm && nm.length >= 2 && local.includes(nm) && (!hit || nm.length > hit.nm.length)) hit = {nm, en: row[0]}; }
   if (!hit) return "";
   let en = hit.en;
   for (const [jp, pre] of REGIONS) if (local.includes(jp)){ en = pre + en; break; }
   const suf = (local.match(/(VMAX|VSTAR|GX|ex|EX|V)$/) || [])[1];
-  return suf ? en + " " + suf : en;
+  return owner + (suf ? en + " " + suf : en);
 }
 let asianWorker = null;
 async function getAsianWorker(){
@@ -400,14 +457,16 @@ async function getAsianWorker(){
 }
 async function readAsianName(card){
   const w = await getAsianWorker();
-  let all = "";
-  for (const [y0, y1, x0, x1] of [[0.035, 0.095, 0.15, 0.60], [0.03, 0.10, 0.10, 0.65], [0.025, 0.11, 0.05, 0.70], [0.04, 0.09, 0.18, 0.55]]){
+  let all = "", best = null;
+  // modern layout (name after the stage badge) and old layouts (name further left / below the evolution line)
+  for (const [y0, y1, x0, x1] of [[0.035, 0.095, 0.15, 0.60], [0.03, 0.10, 0.10, 0.65], [0.04, 0.13, 0.04, 0.62], [0.08, 0.17, 0.12, 0.62], [0.02, 0.16, 0.03, 0.70], [0.025, 0.11, 0.05, 0.70]]){
     await w.setParameters({tessedit_pageseg_mode: "7"});
     const r = await w.recognize(stripOf(card, y0, y1, x0, x1, 900, true));
     const t = r.data.text || ""; all += " " + t;
-    const m = matchAsianName(t); if (m && m.d === 0) return {match: m, text: all};
+    const m = matchAsianName(t);
+    if (m && (!best || m.d < best.d || (m.d === best.d && m.local.length > best.local.length))) best = m;
   }
-  return {match: matchAsianName(all), text: all};
+  return {match: best || matchAsianName(all), text: all};
 }
 
 /* ---------- English / German card title ---------- */
@@ -514,10 +573,18 @@ function getSets(lang){
 }
 async function lookup(lang, number){
   if (!["de", "en"].includes(lang) || !number) return [];
+  if (lang === "de"){   // many older German cards are missing in the database: use the English print (same Cardmarket product)
+    const de = await lookupIn("de", number);
+    return de.length ? de : (await lookupIn("en", number)).map(h => ({...h, name: h.enName}));
+  }
+  return lookupIn(lang, number);
+}
+async function lookupIn(lang, number){
   const [n, d] = number.split("/"); if (!n || !d) return [];
-  const sv = /^SV/i.test(n), official = parseInt(d.replace(/\D/g, ""), 10);
-  const sets = (await getSets(lang)).filter(s => s.cardCount && s.cardCount.official === official && (sv ? /sv$/i.test(s.id) : !/sv$/i.test(s.id))).slice(0, 8);
-  const localId = sv ? n.toUpperCase() : String(parseInt(n, 10));
+  const prefix = ((n.match(/^[A-Z]+/i) || [""])[0]).toLowerCase(), official = parseInt(d.replace(/\D/g, ""), 10);
+  const gallery = /(sv|gg|tg)$/i;
+  const sets = (await getSets(lang)).filter(s => s.cardCount && s.cardCount.official === official && (prefix && prefix !== "h" ? s.id.toLowerCase().endsWith(prefix) : !gallery.test(s.id))).slice(0, 8);
+  const localId = prefix ? n.toUpperCase() : String(parseInt(n, 10));
   const enSets = lang === "en" ? null : await getSets("en");
   const get = (l, id) => fetch(`https://api.tcgdex.net/v2/${l}/sets/${encodeURIComponent(id)}/${encodeURIComponent(localId)}`).then(r => r.ok ? r.json() : null).catch(() => null);
   const hits = await Promise.all(sets.map(async st => {
@@ -559,6 +626,16 @@ async function lookupJa(number, jaName, rawText){
   return {code: "", sure: false};
 }
 
+const VINTAGE_JA = {PMCG1: "Base Set", PMCG2: "Jungle", PMCG3: "Fossil", PMCG4: "Team Rocket", PMCG5: "Leaders' Stadium", PMCG6: "Challenge from the Darkness",
+  neo1: "Neo Genesis", neo2: "Neo Discovery", neo3: "Neo Revelation", neo4: "Neo Destiny"};
+// old Japanese cards only show "No. 001" (Pokédex number): find the set by name among the vintage sets
+async function vintageJa(jaName){
+  if (!jaName) return null;
+  const list = await fetch(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(jaName)}`).then(r => r.ok ? r.json() : []).catch(() => []);
+  const hits = list.map(c => c.id.slice(0, c.id.lastIndexOf("-"))).filter(id => VINTAGE_JA[id]);
+  const uniq = [...new Set(hits)];
+  return uniq.length === 1 ? VINTAGE_JA[uniq[0]] : null;
+}
 // Japanese cards with a readable name but a shaky number: look the name up and pick the print whose number fits the OCR votes
 async function fixJaByName(jaName, number, votes){
   if (!jaName) return null;
@@ -569,7 +646,7 @@ async function fixJaByName(jaName, number, votes){
   const cands = list.map(c => {
     const cut = c.id.lastIndexOf("-"), setId = c.id.slice(0, cut), st = sets.find(x => x.id === setId);
     return {setId, localId: c.localId || c.id.slice(cut + 1), official: st && st.cardCount ? st.cardCount.official : null};
-  }).filter(c => !official || c.official === official);
+  }).filter(c => c.official && c.official < 400 && (!official || c.official === official));
   if (!cands.length) return null;
   const nums = votes.map(v => v.split("/")[0].replace(/\D/g, ""));
   let best = null;
@@ -619,14 +696,18 @@ async function processPhoto(file, cv){
   let img; try { img = await decode(file); } catch(e){ sub.textContent = "Bild ließ sich nicht öffnen."; return; }
 
   setStatus(`Foto ${n}: suche Karten …`);
-  let cards = [];
+  let cards = [], rectCount = 0;
   if (cv){
     const {c: small, s} = scaledCanvas(img, 1400);
-    try { cards = detectRects(cv, small).map(r => ({c: extractCard(img, r, s), pos: posLabel(r)})); } catch(e){ console.warn(e); }
+    try { const rects = detectRects(cv, small); rectCount = rects.length; if (rects.length >= 2) cards = rects.map(r => ({c: extractCard(img, r, s), pos: posLabel(r)})); } catch(e){ console.warn(e); }
   }
-  if (!cards.length){ // single card photo or detection failed: use the whole image
-    const {c} = scaledCanvas(img, 1600);
-    cards = [{c: c.width > c.height ? rotate(c, 90) : c, pos: ""}];
+  if (!cards.length){ // one card on the photo (or nothing detected): read the whole photo
+    sub.textContent = "Einzelkarte";
+    setStatus(`Foto ${n}: lese Einzelkarte …`);
+    await readOneCard(img, list, cv);
+    const P = progressState; setProgress((P.photo + 1) / P.total);
+    sub.textContent = "1 Karte";
+    return;
   }
   sub.textContent = `${cards.length} Karte${cards.length === 1 ? "" : "n"} gefunden`;
 
@@ -654,7 +735,90 @@ function artworkScore(card){
     return f / n; };
   return far(10, 40) - far(44, 74);
 }
-const NUM_OPTS = {tessedit_char_whitelist: "0123456789/SV", tessedit_pageseg_mode: "11"};
+const NUM_OPTS = {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "11"};
+const DEX_RE = /N[oOaQ0][.,:]?\s?(\d{3})\b/;
+async function readDexNo(c){
+  for (const [y0, y1, x0, x1, raw] of [[0.93, 0.985, 0.55, 0.97, true], [0.92, 0.975, 0.5, 0.95, true], [0.93, 0.985, 0.6, 0.95, false]]){
+    const r = await ocr(stripOf(c, y0, y1, x0, x1, 900, raw), {tessedit_char_whitelist: "Noa.0123456789", tessedit_pageseg_mode: "7"});
+    const m = r.text.match(DEX_RE); if (m) return m[1];
+  }
+  return "";
+}
+async function quickCheck(card){
+  const totals = await getKnownTotals();
+  let best = 0;
+  for (const deg of [0, 180]){
+    const c = deg ? rotate(card, 180) : card;
+    for (const [y0, y1, x0, x1] of [[0.92, 0.955, 0.08, 0.55], [0.935, 0.975, 0.08, 0.55], [0.925, 0.965, 0.55, 0.93]]){
+      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
+      const n = findNumber(r.text);
+      if (n){ const d = parseInt(n.split("/")[1].replace(/\D/g, ""), 10); best = Math.max(best, totals.has(d) ? 2 : 1); if (best === 2) return 2; }
+    }
+    if (await readDexNo(c)) return 2;   // old Japanese card: "No. 001" bottom right
+  }
+  return best;
+}
+// photo with one card: try the likely card rectangles, read the best one like a binder pocket; else read the whole photo
+async function readOneCard(img, list, cv){
+  if (cv){
+    const {c: small, s} = scaledCanvas(img, 1400);
+    let cands = [];
+    try { cands = singleCandidates(cv, small); } catch(e){ console.warn(e); }
+    let pickC = null, pickScore = -1;
+    for (const r of cands){
+      const c = extractCard(img, r, s);
+      const q = await quickCheck(c);
+      if (q > pickScore){ pickScore = q; pickC = c; }
+      if (q === 2) break;
+    }
+    if (pickC && pickScore === 2) return readCard(pickC, list, "");
+  }
+  return readSingle(img, list);
+}
+// A photo of one card (close-up, toploader, sleeve): no fixed positions, read all text and pick what we need
+async function readSingle(img, list){
+  let {c} = scaledCanvas(img, 2400);
+  if (c.width > c.height * 1.05) c = rotate(c, 90);
+  const totals = await getKnownTotals();
+  const plausible = num => {
+    if (!num) return false;
+    const [nn, dd] = num.split("/").map(x => parseInt(x.replace(/\D/g, ""), 10));
+    if (!(nn >= 1) || nn > dd * 2 + 10) return false;
+    return totals.size ? totals.has(dd) : dd >= 20;
+  };
+  const lowA = await ocrLines(stripOf(c, 0.45, 1, 0, 1, 1800, true));
+  const lowB = await ocrLines(stripOf(c, 0.45, 1, 0, 1, 2200, false));
+  const lowText = lowA.text + "\n" + lowB.text;
+  const best = {c, votes: [...findNumbers(lowA.text), ...findNumbers(lowB.text)]};
+  const score = {};
+  best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
+  const top = Object.entries(score).sort((x, y) => y[1] - x[1])[0];
+  best.num = top && plausible(top[0]) ? top[0] : "";
+  best.numSure = !!(top && plausible(top[0]) && score[top[0]] >= 4);
+  const dex = lowText.match(/N[oO0][.,]?\s?(\d{3})\b/);
+  const topL = await ocrLines(stripOf(c, 0, 0.45, 0, 1, 1800, true));
+  const lg = guessLang(topL.text + " " + lowText);
+  const opts = {dexNo: dex && !best.num ? dex[1] : "", strip: stripOf(c, 0.75, 1, 0, 1, 900, true)};
+  if (lg.sure){
+    // the card name is the biggest text line at the top
+    opts.latin = null;
+    for (const l of [...topL.lines].sort((x, y) => y.h - x.h)){ const m = matchLatinName(l.text, lg.lang); if (m && (!opts.latin || m.d < opts.latin.d)) opts.latin = m; }
+  } else {
+    const jw = await getAsianWorker();
+    const jt = await ocrLines(stripOf(c, 0, 0.45, 0, 1, 1800, true), {}, jw);
+    let match = null;
+    for (const l of [...jt.lines].sort((x, y) => y.h - x.h)){ const m = matchAsianName(l.text.replace(/\s/g, "")); if (m && (!match || m.d < match.d)) match = m; }
+    opts.asian = {match, text: jt.text};
+  }
+  // set code printed next to the number (e.g. "009/080 ◆ L2", "250/190 s4a")
+  let code = "";
+  if (best.num){
+    const flat = lowText.replace(/\s+/g, " "), key = best.num.split("/")[1].replace(/^0+/, "");
+    const at = flat.search(new RegExp("/\\s?[A-Z]{0,2}0*" + key));
+    if (at >= 0) code = findCode(" " + flat.slice(Math.max(0, at - 40), at + 40).replace(/[^A-Za-z0-9\s]/g, " ") + " ");
+  }
+  return finishCard(c, list, "", best, lg, code, plausible, opts);
+}
 function posLabel(r){
   const col = r.rowLen === 3 ? ["links", "Mitte", "rechts"][r.col] : r.rowLen === 2 ? ["links", "rechts"][r.col] : r.rowLen === 1 ? "" : `Platz ${r.col + 1}`;
   return `Reihe ${r.row + 1}${col ? " " + col : ""}`;
@@ -673,9 +837,11 @@ async function readCard(card, list, pos){
   for (const deg of [0, 180]){
     const c = deg ? rotate(card, 180) : card;
     const votes = []; let conf = 0;
-    for (const [y0, y1] of [[0.92, 0.952], [0.94, 0.972]]){
-      const r = await ocr(stripOf(c, y0, y1, 0.10, 0.50, 800, true), {tessedit_char_whitelist: "0123456789/SV", tessedit_pageseg_mode: "7"});
-      const n = findNumber(r.text); if (n) votes.push(n); conf = Math.max(conf, r.conf);
+    for (const [y0, y1, x0, x1] of [[0.92, 0.952, 0.10, 0.50], [0.94, 0.972, 0.10, 0.50], [0.925, 0.965, 0.55, 0.93], [0.94, 0.98, 0.55, 0.93]]){
+      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
+      let n = findNumber(r.text);
+      if (n && x0 >= 0.5 && parseInt(n.split("/")[1].replace(/\D/g, ""), 10) < 40) n = null;
+      if (n) votes.push(n); conf = Math.max(conf, r.conf);
     }
     const num = votes.find(plausible) || votes[0] || null;
     const cand = {c, votes, conf};
@@ -694,27 +860,39 @@ async function readCard(card, list, pos){
   }
   // 2) read the number a few more ways and vote
   // number line sits around 92-97 % of the card height, depending on the card era
-  const tries = [[0.915, 0.955, 0.10, "6", true], [0.93, 0.962, 0.10, "7", true], [0.935, 0.975, 0.10, "6", true], [0.92, 0.952, 0.20, "7", true], [0.94, 0.972, 0.20, "7", true],
-                 [0.92, 0.955, 0.10, "7", false], [0.935, 0.972, 0.10, "7", false], [0.925, 0.965, 0.15, "6", false]];
-  for (const [y0, y1, x0, psm, raw] of tries){
-    const r = await ocr(stripOf(best.c, y0, y1, x0, 0.50, raw ? 800 : 900, raw), {tessedit_char_whitelist: "0123456789/SV", tessedit_pageseg_mode: psm});
-    const num = findNumber(r.text); if (num) best.votes.push(num);
+  const tries = [[0.915, 0.955, 0.10, 0.50, "6", true], [0.93, 0.962, 0.10, 0.50, "7", true], [0.935, 0.975, 0.10, 0.50, "6", true], [0.92, 0.952, 0.20, 0.50, "7", true], [0.94, 0.972, 0.20, 0.50, "7", true],
+                 [0.92, 0.955, 0.10, 0.50, "7", false], [0.935, 0.972, 0.10, 0.50, "7", false], [0.925, 0.965, 0.15, 0.50, "6", false],
+                 [0.92, 0.96, 0.55, 0.93, "7", true], [0.935, 0.975, 0.55, 0.93, "7", true], [0.93, 0.97, 0.55, 0.93, "7", false]];
+  for (const [y0, y1, x0, x1, psm, raw] of tries){
+    const r = await ocr(stripOf(best.c, y0, y1, x0, x1, raw ? 800 : 900, raw), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: psm});
+    let num = findNumber(r.text);
+    if (num && x0 >= 0.5 && parseInt(num.split("/")[1].replace(/\D/g, ""), 10) < 40) num = null;
+    if (num) best.votes.push(num);
   }
   const score = {};
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
-  best.num = top && plausible(top[0]) ? top[0] : (top ? top[0] : "");
-  best.numSure = !!(top && plausible(top[0]) && (score[top[0]] >= 5 || best.votes.length === 1));
+  // small totals (< 40) are easy to misread from noise: they need two matching readings
+  const smallTotal = top && parseInt(top[0].split("/")[1].replace(/\D/g, ""), 10) < 40;
+  const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6);
+  best.num = okTop ? top[0] : "";
+  best.numSure = !!(okTop && (score[top[0]] >= 5 || best.votes.length === 1));
   const {c} = best;
   const lg = best.lg || guessLang((await ocr(stripOf(c, 0.5, 0.93, 0, 1, 1400, true), {tessedit_pageseg_mode: "3"})).text);
 
   const codeRes = await ocr(invert(stripOf(c, 0.925, 0.97, 0.03, 0.22, 900)), {tessedit_char_whitelist: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", tessedit_pageseg_mode: "11"});
   const code = findCode(codeRes.text);
+  const dexNo = plausible(best.num) ? "" : await readDexNo(c);
+  if (dexNo){ best.num = ""; best.votes = []; }
+  return finishCard(c, list, pos, best, lg, code, plausible, {dexNo});
+}
+
+async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   let picks = [], latin = null;
   if (lg.sure && !plausible(best.num)){
     // no readable number: read the card name instead and look the card up by name
-    const t = await ocr(stripOf(c, 0.025, 0.11, 0.08, 0.80, 1200, true), {tessedit_pageseg_mode: "7"});
-    latin = matchLatinName(t.text, lg.lang);
+    if (opts.latin !== undefined) latin = opts.latin;
+    else { const t = await ocr(stripOf(c, 0.025, 0.11, 0.08, 0.80, 1200, true), {tessedit_pageseg_mode: "7"}); latin = matchLatinName(t.text, lg.lang); }
     if (latin){
       let cands = await candidatesByName(lg.lang, latin.printed);
       if (!/^(Galar|Alola|Hisui|Paldea)/i.test(latin.printed)){
@@ -733,13 +911,14 @@ async function readCard(card, list, pos){
       if (chosen){ best.num = numberOf(chosen); best.numSure = false; }
     }
   }
-  let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure;
+  let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure, vintageSet = null;
   if (!lg.sure){
-    const rn = await readAsianName(c);
+    const rn = opts.asian || await readAsianName(c);
     asian = rn.match;
     if (/[\u3040-\u30FF]/.test(rn.text) || (asian && asian.script === "ja")){ lang = "ja"; langSure = !!asian; }
     else if (asian && asian.script === "zh"){ lang = "zh"; langSure = true; }
-    if (lang === "ja"){
+    if (lang === "ja" && !plausible(best.num) && asian && opts.dexNo) vintageSet = await vintageJa(asian.local);
+    if (lang === "ja" && !vintageSet){
       jaSet = await lookupJa(best.num, asian && asian.local, asian ? "" : rn.text);
       if (asian && !(jaSet && jaSet.sure)){
         const fx = await fixJaByName(asian.local, best.num, best.votes);
@@ -748,8 +927,9 @@ async function readCard(card, list, pos){
     }
   }
   const data = {picks, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
-    code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: ""};
-  const item = {pos, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: stripOf(c, 0.84, 0.975, 0, 0.66, 900).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
+    code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
+  if (vintageSet){ data.number = ""; data.code = ""; }
+  const item = {pos, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
   allCards.push(item); list.append(item.el);
   await refreshLookup(item);
@@ -758,7 +938,7 @@ async function readCard(card, list, pos){
 async function refreshLookup(item){
   const d = item.data;
   d.options = await lookup(d.lang, d.number);
-  if (d.options.length && !d.nameTouched){ const o = d.options[0]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; }
+  if (d.options.length && !d.nameTouched){ const o = d.options[0]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; if (!d.codeSure) d.code = ""; }
   if (!d.options.length) d.setId = "";
   render(item); renderExport();
   findCardmarket(item);
@@ -782,8 +962,10 @@ function cseSearch(q){
   return FINDER.queue;
 }
 function searchQuery(d){
+  if (d.vintageSet) return [d.enName || d.local, d.vintageSet].filter(Boolean).join(" ");
   const numerator = (d.number || "").split("/")[0];
-  if ((d.lang === "ja" || d.lang === "zh") && d.code) return [d.enName, `(${d.code} ${parseInt(numerator.replace(/\D/g, ""), 10)})`].filter(Boolean).join(" ");
+  if ((d.lang === "ja" || d.lang === "zh") && d.code)
+    return [[d.enName, `(${d.code} ${parseInt(numerator.replace(/\D/g, ""), 10)})`].filter(Boolean).join(" "), [d.enName || d.local, d.code, d.number].filter(Boolean).join(" ")].join(" || ");
   if (d.lang === "ja" || d.lang === "zh") return [d.enName || d.name, d.number].filter(Boolean).join(" ");
   return [d.enName || d.name, d.code || d.enSet || d.set, numerator].filter(Boolean).join(" ");
 }
@@ -792,8 +974,8 @@ async function findCardmarket(item){
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
   d.cmPrices = pricesLink(d);
-  if (d.cmPrices && !cseId()){ d.cmState = "prices"; render(item); renderExport(); return; }
-  if (!cseId() || !d.number) return;
+  if (d.cmPrices){ d.cmState = "prices"; render(item); renderExport(); return; }   // exact product page, no search needed
+  if (!cseId() || !(d.number || d.vintageSet)) return;
   d.cmState = "searching"; render(item);
   const results = await cseSearch(searchQuery(d));
   const hit = (results || []).map(r => r.unescapedUrl || r.url || "").find(u => /cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\//i.test(u));
@@ -823,6 +1005,7 @@ function pricesLink(d){
 
 /* ---------- link memory (per card, stays in this browser) ---------- */
 function cardKey(d){
+  if (d.vintageSet && (d.enName || d.local)) return (d.vintageSet + "|" + (d.enName || d.local)).toLowerCase();
   const n = (d.number || "").toUpperCase().replace(/\s/g, "");
   const where = (d.code || d.enSet || d.set || "").toLowerCase();
   return n && where ? (where + "|" + n).toLowerCase() : "";
@@ -871,7 +1054,7 @@ window.addEventListener("focus", () => setTimeout(tryClipboard, 300));
 
 /* ---------- output ---------- */
 function googleUrl(d){
-  const parts = ["cardmarket", d.enName || d.name, d.code || d.set, d.number];
+  const parts = ["cardmarket", d.enName || d.name, d.vintageSet || d.code || d.set, d.number || (d.dexNo ? "No." + d.dexNo : ""), (d.lang === "ja" ? "japanese" : "")];
   return "https://www.google.de/search?q=" + encodeURIComponent(parts.filter(Boolean).join(" "));
 }
 
@@ -914,7 +1097,9 @@ function render(item){
   const setOpts = d.options.length > 1
     ? `<label>Treffer<select data-f="pick">${d.options.map((o, i) => `<option value="${i}"${o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
   const flags = [];
-  if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
+  if (!d.number && d.vintageSet) {}
+  else if (!d.number && d.dexNo) flags.push("Alte Karte ohne Set-Nummer – Set unbekannt");
+  else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
   if (!d.langSure) flags.push("Sprache geraten");
@@ -935,7 +1120,7 @@ function render(item){
     <button class="tilethumb" type="button" data-zoom aria-label="Karte groß anzeigen"><img src="${item.thumb}" alt="Gescannte Karte"></button>
     ${item.pos ? `<div class="pos">${esc(item.pos)}</div>` : ""}
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
-    <div class="meta">${esc(setLabel(d))} · ${esc(d.number || "Nr. ?")} · ${LANGS[d.lang]}</div>
+    <div class="meta">${esc(d.vintageSet || setLabel(d))} · ${esc(d.number || (d.dexNo ? "No. " + d.dexNo : "Nr. ?"))} · ${LANGS[d.lang]}</div>
     ${d.local ? `<div class="meta">Auf der Karte: ${esc(d.local)}</div>` : ""}
     ${flags.length ? `<div class="flag">${flags.join(" · ")}</div>` : ""}
     ${!d.number && d.picks && d.picks.length ? `<div class="picks">${d.picks.map((pk, i) => `<button type="button" class="pick" data-pick="${i}">${pk.image ? `<img src="${esc(pk.image)}/low.webp" alt="" loading="lazy">` : ""}<span>${esc(pk.setName)}<br>${esc(numberOf(pk))}</span></button>`).join("")}</div>` : ""}
@@ -1042,7 +1227,7 @@ function applyMemory(){
   if (n) renderExport();
   return n;
 }
-function missingCards(){ return allCards.filter(it => !it.data.cmFound && it.data.number && cardKey(it.data)); }
+function missingCards(){ return allCards.filter(it => !it.data.cmFound && !it.data.cmPrices && (it.data.number || it.data.vintageSet) && cardKey(it.data)); }
 function updateGhButton(){
   const b = $("#ghBtn"); if (!b) return;
   const n = new Set(missingCards().map(it => cardKey(it.data))).size;
