@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const html = fs.readFileSync("index.html","utf8");
+const helper = html.slice(html.indexOf("function selectCardRects"),html.indexOf("function detectRects"));
+const select = new Function(helper+"return selectCardRects")();
+const outer={cx:100,cy:150,w:200,h:280,angle:0};
+const left={cx:100,cy:80,w:190,h:135,angle:0};
+const right={cx:100,cy:220,w:190,h:135,angle:0};
+assert.deepEqual(select([outer,left,right]),[left,right]);
+assert.equal(select([left,{...left,w:184,h:131}]).length,1);
+assert.deepEqual(select([outer,{cx:100,cy:110,w:120,h:85,angle:0}]),[outer]);
+assert.deepEqual(select([]),[]);
+const turn=r=>({...r,cx:400-r.cy,cy:r.cx,angle:90});
+assert.equal(select([outer,left,right].map(turn)).length,2);
+console.log("Card separation regression tests passed");
