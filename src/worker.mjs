@@ -1,4 +1,4 @@
-import {referenceSearch, validImage} from './reference-source.mjs';
+import {referenceSearch, validImage, fetchReference} from './reference-source.mjs';
 const json = (value, status=200) => Response.json(value, {status, headers:{'Cache-Control':status===200?'public, max-age=300':'no-store'}});
 export default {
   async fetch(request, env) {
@@ -14,7 +14,7 @@ export default {
       if (u.pathname === '/api/reference-image') {
         const image = validImage(u.searchParams.get('url'));
         if (!image) return json({error:'Invalid reference image'},400);
-        const r = await fetch(image.href, {signal:AbortSignal.timeout(15000), redirect:'error',cf:{cacheTtl:86400,cacheEverything:true}});
+        const r = await fetchReference(image.href, fetch, {cf:{cacheTtl:86400,cacheEverything:true}});
         if (!r.ok || !/^image\//.test(r.headers.get('Content-Type') || '')) return json({error:'Image unavailable'},502);
         return new Response(r.body,{headers:{'Content-Type':r.headers.get('Content-Type'),'Cache-Control':'public, max-age=86400'}});
       }

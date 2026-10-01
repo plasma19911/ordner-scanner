@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 (async()=>{
-  const {parseReferences,validImage,referenceSearch}=await import('../src/reference-source.mjs');
+  const {parseReferences,validImage,referenceSearch,fetchReference}=await import('../src/reference-source.mjs');
   const tile=(href,name,set,number,image)=>`<a href="${href}" class="card-item"><img src="${image}"><span class="card-name">${name}</span><span class="card-number">${number}</span><span class="card-set">${set}</span></a>`;
   const image='https://www.pokemonkarte.de/jap_img/kaarten/adv5-9.webp';
   const cards=parseReferences(tile('/japanse-kaart?kaart=adv5-9','Heracross','Undone Seal','009/083',image),'ja');
@@ -9,6 +9,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
   assert.equal(parseReferences(tile('https://evil.example/karte/test','Entei','Test','1/10',image),'en').length,0);
   for(const url of ['https://evil.example/a.png','https://www.pokemonkarte.de/api/a.png','https://www.pokemonkarte.de/wp-content/uploads/../../api/a.png',image+'?url=x'])assert.equal(validImage(url),null);
   assert.equal(parseReferences(Array.from({length:81},(_,i)=>tile('/karte/test-'+i,'Entei','Test','1/10',image)).join(''),'en').length,0);
+  let hops=0;
+  const redirected=await fetchReference('https://www.pokemonkarte.de/search?q=Heracross',async url=>{
+    hops++;return hops===1?new Response('',{status:302,headers:{Location:'/suche?q=Heracross'}}):new Response('ok');
+  });
+  assert.equal(hops,2);assert.equal(await redirected.text(),'ok');
+  await assert.rejects(()=>fetchReference('https://www.pokemonkarte.de/search',async()=>new Response('',{status:302,headers:{Location:'https://evil.example/search'}})));
   let requested;await referenceSearch('ja','Erika\'s Bulbasaur',async(url)=>{requested=new URL(url);return {ok:true,text:async()=>''}});
   assert.equal(requested.pathname,'/japanse-search');assert.equal(requested.searchParams.get('q'),"Erika's Bulbasaur");
   await assert.rejects(()=>referenceSearch('xx','Entei'));

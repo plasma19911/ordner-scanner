@@ -1,6 +1,6 @@
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {referenceSearch,validImage} from '../src/reference-source.mjs';
+import {referenceSearch,validImage,fetchReference} from '../src/reference-source.mjs';
 
 // Public catalogue entries, never scanner photos. Extend these queries to grow the Pages collection.
 const names={
@@ -24,7 +24,7 @@ let next=0,totalBytes=0,failures=0;
 const task=async()=>{while(next<images.length){
  const url=images[next++],safe=validImage(url);if(!safe)throw new Error('Invalid reference image');
  try{
-  const r=await fetch(safe.href,{signal:AbortSignal.timeout(15000),redirect:'error'});
+  const r=await fetchReference(safe.href);
   if(!r.ok || !/^image\//.test(r.headers.get('content-type') || ''))throw new Error('Image unavailable');
   const data=Buffer.from(await r.arrayBuffer());
   if(data.length>2000000)throw new Error('Reference image too large');
