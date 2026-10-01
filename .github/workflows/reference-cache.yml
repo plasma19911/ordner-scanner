@@ -1,0 +1,34 @@
+name: Validate scanner and cache Pages references
+on:
+  push:
+    branches: [fix/github-pages-direct-links]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/cache-references.mjs
+      - run: npm run build
+      - name: Save public reference collection on this branch
+        env:
+          CACHE_BRANCH: ${{ github.ref_name }}
+        run: |
+          git add reference-cache.json reference-images
+          if git diff --cached --quiet
+          then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Cache public card reference images for GitHub Pages"
+          git push origin "HEAD:$CACHE_BRANCH"
