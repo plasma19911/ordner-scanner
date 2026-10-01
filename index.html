@@ -89,8 +89,9 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 </head>
 <body>
 <main>
-  <h1>Ordnerseite rein, Google-Links raus</h1>
-  <p class="lead">Ein Foto mit einer Karte oder eine ganze Ordnerseite, auch schief oder gedreht. Die Seite findet jede Karte, liest die Kartennummer und die Sprache und baut dir einen Google-Link „cardmarket Name Set Nummer“ und hinterlegt den ersten Cardmarket-Treffer als Link – mit Near Mint, Kartensprache und deutschen Händlern. Japanische Kartennamen werden mitgelesen. Alles läuft im Browser, ohne KI.</p>
+  <h1>Karten erkennen und Cardmarket finden</h1>
+  <p class="lead">Einzelfotos oder Ordnerseiten: Der Scanner liest Namen, Nummern und Sprache und vergleicht Bilder mit verfügbaren Referenzen. Eindeutige Karten erhalten einen direkten Cardmarket-Link. Unklare Treffer kannst du unter „Korrigieren“ prüfen oder über Google suchen. Deine Fotos werden im Browser verarbeitet.</p>
+  <p class="hint" id="referenceStatus" aria-live="polite">Referenzsammlung wird geladen …</p>
 
   <details class="setup" id="cseSetup">
     <summary id="cseSummary">Cardmarket-Links vollautomatisch (optional)</summary>
@@ -945,11 +946,25 @@ async function readCard(card, list, pos){
 }
 
 const REFERENCE_CACHE = new Map(), RECENT_REFERENCE_NAMES = [];
+let STATIC_REFERENCES;
+function staticReferences(){
+  if(!STATIC_REFERENCES) STATIC_REFERENCES = fetch("reference-cache.json").then(r=>r.ok?r.json():{cards:[]}).then(r=>r.cards || []).catch(()=>[]);
+  return STATIC_REFERENCES;
+}
 const referenceFamily = s => (s || "").replace(/\s*(?:VMAX|VSTAR|V-UNION|GX|EX|ex|V)\s*$/i, "").trim();
 const referenceNormalize = s => (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 async function referenceCards(lang, name){
   const key = lang + "|" + name;
-  if (!REFERENCE_CACHE.has(key)) REFERENCE_CACHE.set(key, fetch(`/api/references?lang=${lang}&q=${encodeURIComponent(name)}`).then(r => {if(!r.ok) throw new Error("References unavailable");return r.json();}).then(r => r?.cards || []).catch(() => {REFERENCE_CACHE.delete(key);return [];}));
+  if (!REFERENCE_CACHE.has(key)) REFERENCE_CACHE.set(key, (async()=>{
+    const wanted=referenceNormalize(referenceFamily(name));
+    const saved=(await staticReferences()).filter(r=>r.lang===lang && referenceNormalize(referenceFamily(r.name))===wanted);
+    if(saved.length) return saved.map(r=>({...r,image:r.cachedImage || "",directImage:true}));
+    // GitHub Pages cannot serve the Worker API.
+    if(location.hostname.endsWith(".github.io")) return [];
+    const r=await fetch("api/references?lang="+lang+"&q="+encodeURIComponent(name));
+    if(!r.ok) throw new Error("References unavailable");
+    return (await r.json()).cards || [];
+  })().catch(()=>{REFERENCE_CACHE.delete(key);return [];}));
   return REFERENCE_CACHE.get(key);
 }
 async function referenceMetadata(ref){
@@ -975,10 +990,12 @@ async function referenceMetadata(ref){
   const st = matching[0];
   return {...ref,setId:st.id,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:""};
 }
-async function applyReferenceMatch(item, photo){
+async function applyReferenceMatch(item, photo, force=false){
   const d = item.data;
   if (!globalThis.CardMatcher || !window.cv?.ORB || !["de","en","ja"].includes(d.lang)) return;
-  if (d.setSure && d.langSure) return;
+  if (!force && d.setSure && d.langSure) return;
+  const revision=(item.referenceRevision || 0)+1;item.referenceRevision=revision;
+  const identity=()=>[d.name,d.number,d.lang,d.code].join('|'),requestedIdentity=identity();
   const printed = d.lang === "ja" ? d.enName : d.observedName || d.name;
   const family = referenceFamily(printed), unknown = !family;
   if (family){
@@ -1011,7 +1028,8 @@ async function applyReferenceMatch(item, photo){
       }
     }
     if (!candidates.length) return;
-    const ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `/api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+    const ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+    if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     if (!ranked.sure){
       d.referenceState = "uncertain";
       return;
@@ -1024,6 +1042,7 @@ async function applyReferenceMatch(item, photo){
       const card = await fetch(`https://api.tcgdex.net/v2/en/cards/${r.setId}-${id}`).then(v=>v.ok?v.json():null).catch(()=>null);
       enName=card?.name || d.enName || r.name; enSet=card?.set?.name || r.set;
     }
+    if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     Object.assign(d,{name:r.name,enName,local:r.local || d.local,
       observedName:r.lang === "ja" ? "" : r.name,number:r.number,set:r.set,enSet,setId:r.setId,
       preferredSetId:r.setId,code:r.code,codeSure:!!r.code,lang:r.lang,langSure:d.langSure,setSure:true,
@@ -1164,8 +1183,8 @@ async function findCardmarket(item){
   const query = searchQuery(d), key = cardKey(d);
   const results = await cseSearch(query);
   if (query !== searchQuery(d) || key !== cardKey(d)) return;
-  const hit = (results || []).map(r => r.unescapedUrl || r.url || "").find(u => /cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\//i.test(u));
-  d.cmFound = hit ? hit.replace(/cardmarket\.com\/[a-z]{2}\//i, "cardmarket.com/de/").split("?")[0] : "";
+  const hit = (results || []).map(r => extractCardmarket(r.unescapedUrl || r.url || "")).find(Boolean);
+  d.cmFound = hit || "";
   if (d.cmFound) memSet(d, d.cmFound);
   d.cmState = results === null ? (d.cmPrices ? "prices" : "error") : (hit ? "found" : (d.cmPrices ? "prices" : "none"));
   if (hit){
@@ -1177,16 +1196,21 @@ async function findCardmarket(item){
   }
   render(item); renderExport();
 }
-function cmLink(d){ return d.cmFound ? cmWithFilters(d.cmFound, d.lang) : ""; }
+function cmLink(d){ return cmWithFilters(d.cmFound || d.cmPrices || "", d.lang) || ""; }
 
-/* ---------- direct Cardmarket link for English/German cards (no search needed) ---------- */
-// TCGdex set id -> pokemontcg.io set id. prices.pokemontcg.io/cardmarket/<id>-<nr> forwards straight to the Cardmarket product page.
-const PTCG_SETS = {"base2":"base2","basep":"basep","base3":"base3","base4":"base4","base5":"base5","gym1":"gym1","gym2":"gym2","neo1":"neo1","neo2":"neo2","si1":"si1","neo3":"neo3","neo4":"neo4","lc":"base6","ecard1":"ecard1","bog":"bp","ecard2":"ecard2","ecard3":"ecard3","ex1":"ex1","ex2":"ex2","np":"np","ex3":"ex3","ex4":"ex4","ex5":"ex5","tk-ex-latia":"tk1a","tk-ex-latio":"tk1b","ex6":"ex6","pop1":"pop1","ex7":"ex7","ex8":"ex8","ex9":"ex9","pop2":"pop2","ex10":"ex10","ex11":"ex11","ex12":"ex12","tk-ex-m":"tk2b","tk-ex-p":"tk2a","pop3":"pop3","ex13":"ex13","pop4":"pop4","ex14":"ex14","ex15":"ex15","ex16":"ex16","pop5":"pop5","dpp":"dpp","dp1":"dp1","dp2":"dp2","pop6":"pop6","dp3":"dp3","dp4":"dp4","pop7":"pop7","dp5":"dp5","dp6":"dp6","pop8":"pop8","dp7":"dp7","pl1":"pl1","pop9":"pop9","pl2":"pl2","pl3":"pl3","pl4":"pl4","ru1":"ru1","hgssp":"hsp","col1":"col1","bw1":"bw1","bwp":"bwp","2011bw":"mcd11","bw2":"bw2","bw3":"bw3","bw4":"bw4","bw5":"bw5","2012bw":"mcd12","bw6":"bw6","dv1":"dv1","bw7":"bw7","bw8":"bw8","bw9":"bw9","bw10":"bw10","xyp":"xyp","bw11":"bw11","xy0":"xy0","xy1":"xy1","xy2":"xy2","2014xy":"mcd14","xy3":"xy3","xy4":"xy4","xy5":"xy5","dc1":"dc1","xy6":"xy6","xy7":"xy7","xy8":"xy8","2015xy":"mcd15","xy9":"xy9","g1":"g1","xy10":"xy10","xy11":"xy11","2016xy":"mcd16","xy12":"xy12","sm1":"sm1","smp":"smp","sm2":"sm2","2017sm":"mcd17","sm3":"sm3","sm3.5":"sm35","sm4":"sm4","sm5":"sm5","sm6":"sm6","sm7":"sm7","sm7.5":"sm75","2018sm":"mcd18","sm8":"sm8","sm9":"sm9","det1":"det1","sm10":"sm10","sm11":"sm11","sma":"sma","sm115":"sm115","2019sm":"mcd19","sm12":"sm12","swshp":"swshp","swsh1":"swsh1","swsh2":"swsh2","swsh3":"swsh3","swsh3.5":"swsh35","swsh4":"swsh4","2021swsh":"mcd21","swsh4.5":"swsh45","swsh4.5sv":"swsh45sv","swsh5":"swsh5","swsh6":"swsh6","swsh7":"swsh7","cel25cc":"cel25c","cel25":"cel25","swsh8":"swsh8","swsh9tg":"swsh9tg","swsh9":"swsh9","swsh10":"swsh10","swsh10tg":"swsh10tg","swsh10.5":"pgo","2022swsh":"mcd22","swsh11":"swsh11","swsh11tg":"swsh11tg","swsh12":"swsh12","swsh12tg":"swsh12tg","swsh12.5":"swsh12pt5","swsh12.5gg":"swsh12pt5gg","sv01":"sv1","sv02":"sv2","sv03":"sv3","sv03.5":"sv3pt5","sv04":"sv4","sv04.5":"sv4pt5","sv05":"sv5","sv06":"sv6","sv06.5":"sv6pt5","sv07":"sv7","sv08":"sv8","sv08.5":"sv8pt5","sv09":"sv9","sv10":"sv10","sv10.5b":"zsv10pt5","sv10.5w":"rsv10pt5","me01":"me1","me02":"me2","me02.5":"me2pt5","me03":"me3","me04":"me4","me05":"me5","30th":"me55","base1":"base1","hgss1":"hgss1","hgss2":"hgss2","hgss3":"hgss3","hgss4":"hgss4","svp":"svp","sve":"sve"};
+/* ---------- verified direct Cardmarket products ---------- */
+// Unknown products stay searchable; redirect services are never labelled as Cardmarket links.
+const CM_PRODUCTS_BY_ID = {
+  "base1-30": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Base-Set/Ivysaur-V1-BS30",
+  "ecard3-8": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Flareon-V2-SK8",
+  "sm3.5-74": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Legends/Entei-GX-V3-SLG74",
+  "swsh12.5gg-GG36": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-V-CRZGG36"
+};
 function pricesLink(d){
-  if (!(d.lang === "de" || d.lang === "en") || !d.setId || !PTCG_SETS[d.setId] || !d.number) return "";
-  const n = d.number.split("/")[0].toUpperCase();
-  const local = /^[A-Z]+\d+$/.test(n) ? n : String(parseInt(n, 10));
-  return local && local !== "NaN" ? `https://prices.pokemontcg.io/cardmarket/${PTCG_SETS[d.setId]}-${local}` : "";
+  if (!["de","en"].includes(d.lang) || !d.setId || !d.number) return "";
+  const n=d.number.split("/")[0].toUpperCase();
+  const local=/^[A-Z]+\d+$/.test(n)?n:String(parseInt(n,10));
+  return CM_PRODUCTS_BY_ID[d.setId+"-"+local] || "";
 }
 
 /* ---------- link memory (per card, stays in this browser) ---------- */
@@ -1196,25 +1220,40 @@ function cardKey(d){
   const where = (d.code || d.enSet || d.set || "").toLowerCase();
   return n && where ? (where + "|" + n).toLowerCase() : "";
 }
-function memGet(d){ try { return (JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"))[cardKey(d)] || ""; } catch(e){ return ""; } }
+function normalizedMemoryKey(key){
+  return key.replace(/\|([A-Z]*)(0*\d+)\/([A-Z]*)(0*\d+)$/i,(_,a,b,c,d)=>"|"+a.toLowerCase()+Number(b)+"/"+c.toLowerCase()+Number(d));
+}
+function memGet(d){
+  try {
+    const m=JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"),key=cardKey(d),normalized=normalizedMemoryKey(key);
+    const direct=extractCardmarket(m[key]);if(direct) return direct;
+    return Object.entries(m).filter(([k])=>normalizedMemoryKey(k)===normalized).map(([,v])=>extractCardmarket(v)).find(Boolean) || "";
+  } catch {return "";}
+}
 function memSet(d, url){
-  const k = cardKey(d); if (!k) return;
+  const k = cardKey(d); url = extractCardmarket(url); if (!k || !url) return;
   try { const m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"); m[k] = url; localStorage.setItem("fp_cm_memory", JSON.stringify(m)); } catch(e){}
 }
 function extractCardmarket(text){
   if (!text) return "";
-  let t = text.trim();
-  try { // Google wraps result links: /url?q=… or /goto?url=…
-    const u = new URL(t);
-    const inner = u.searchParams.get("q") || u.searchParams.get("url") || u.searchParams.get("u");
-    if (/google\./.test(u.hostname) && inner) t = inner;
-  } catch(e){}
-  const m = decodeURIComponent(t).match(/https?:\/\/www\.cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/[^\s"'<>?#&]+/i);
-  return m ? m[0].replace(/cardmarket\.com\/[a-z]{2}\//i, "cardmarket.com/de/") : "";
+  let t=String(text).trim();
+  try {
+    const u=new URL(t);
+    if (/(^|\.)google\.[a-z.]+$/i.test(u.hostname)) t=u.searchParams.get("q") || u.searchParams.get("url") || u.searchParams.get("u") || t;
+  } catch {}
+  try {if(!/^https?:\/\//i.test(t)) t=decodeURIComponent(t);} catch {}
+  const m=t.match(/https?:\/\/(?:www\.)?cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/[^\s"'<>]+/i);
+  if(!m) return "";
+  try {
+    const u=new URL(m[0]);
+    if(!["cardmarket.com","www.cardmarket.com"].includes(u.hostname) || !/^\/[a-z]{2}\/Pokemon\/Products\/Singles\/[^/?#]+\/[^/?#]+$/i.test(u.pathname)) return "";
+    return "https://www.cardmarket.com"+u.pathname.replace(/^\/[a-z]{2}\//i,"/de/");
+  } catch {return "";}
 }
 function acceptLink(item, url){
   const d = item.data;
-  d.cmFound = url; d.cmState = "found"; memSet(d, url);
+  url = extractCardmarket(url); if(!url) return;
+  d.cmFound = url; d.cmPrices = ""; d.cmState = "found"; memSet(d, url);
   const card = decodeURIComponent((slugOf(d).split("/")[1]) || "");
   const num = parseInt((d.number || "").split("/")[0].replace(/\D/g, ""), 10);
   if (d.code && num && new RegExp(d.code + "0*" + num + "$", "i").test(card)){ d.codeSure = true; d.numSure = true; }
@@ -1246,15 +1285,12 @@ function googleUrl(d){
 
 const CM_LANG = {de: "3", en: "1", ja: "7", zh: "6"};
 function cmWithFilters(url, lang){
-  try {
-    const u = new URL(url.trim());
-    if (!/cardmarket\.com$/.test(u.hostname)) return null;
-    u.search = "";
-    u.searchParams.set("sellerCountry", "7");
-    u.searchParams.set("language", CM_LANG[lang] || "1");
-    u.searchParams.set("minCondition", "2");
-    return u.toString();
-  } catch(e){ return null; }
+  const direct=extractCardmarket(url); if(!direct) return null;
+  const u=new URL(direct);
+  u.searchParams.set("sellerCountry","7");
+  u.searchParams.set("language",CM_LANG[lang] || "1");
+  u.searchParams.set("minCondition","2");
+  return u.toString();
 }
 
 function openZoom(src){
@@ -1268,7 +1304,7 @@ function openZoom(src){
   }
   z.querySelector("img").src = src; z.classList.add("open");
 }
-function slugOf(d){ return d.cmFound ? d.cmFound.replace(/^https:\/\/www\.cardmarket\.com\/de\/Pokemon\/Products\/Singles\//, "") : ""; }
+function slugOf(d){ return extractCardmarket(d.cmFound || d.cmPrices || "").replace(/^https:\/\/www\.cardmarket\.com\/de\/Pokemon\/Products\/Singles\//, ""); }
 function setLabel(d){
   const fromSlug = slugOf(d) ? slugOf(d).split("/")[0].replace(/-/g, " ") : "";
   const name = d.enSet || fromSlug || d.set;
@@ -1295,7 +1331,7 @@ function render(item){
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
-  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(d.cmPrices)}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Filter für Near Mint, Sprache und Deutschland auf Cardmarket einstellen.</div>`;
+  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Direkter Produktlink mit Kartensprache, Near Mint und deutschen Händlern.</div>`;
   else if (d.cmState === "searching") cm = `<div class="cm wait">Suche Cardmarket-Link …</div>`;
   else if (d.cmState === "ambiguous") cm = `<div class="cm miss">Für den richtigen Link zuerst Karte / Set bestätigen.</div>`;
   else if (d.cmState === "none") cm = `<div class="cm miss">Kein Cardmarket-Treffer</div>`;
@@ -1328,13 +1364,14 @@ function render(item){
           <label>Sprache<select data-f="lang">${langOpts}</select></label>
           ${setOpts}
         </div>
+        <button class="btn small" type="button" data-refcheck>Mit Referenzbildern prüfen</button>
         <div class="paste">
           <input type="url" data-cm placeholder="Cardmarket-Link selbst einfügen" aria-label="Cardmarket-Link">
           <button class="btn small" type="button" data-cmgo>Übernehmen</button>
         </div>
       </div>
     </details>`;
-  item.el.querySelector("[data-prices]")?.addEventListener("click", () => { awaiting = item; });
+
   item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", async () => {
     const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
@@ -1347,6 +1384,16 @@ function render(item){
   item.el.querySelector("[data-paste]")?.addEventListener("click", async () => {
     if (!(await tryClipboard())) setStatus("In der Zwischenablage ist noch kein Cardmarket-Link. Bei Google den Treffer gedrückt halten und „Link kopieren“ wählen.", true);
   });
+  item.el.querySelector("[data-refcheck]").addEventListener("click", async () => {
+    if(item.referenceWorking) return;item.referenceWorking=true;
+    setStatus("Prüfe Referenzbilder …");
+    try{
+      const image=await loadImg(item.thumb);
+      if(image) await applyReferenceMatch(item,image,true);
+      await refreshLookup(item);
+      setStatus(d.referenceState === "matched" ? "Referenzbild gefunden – Angaben prüfen." : "Kein eindeutiger Bildtreffer. Name und Sprache prüfen.");
+    }finally{item.referenceWorking=false;}
+  });
   item.el.querySelector("[data-cmgo]").addEventListener("click", () => {
     const inp = item.el.querySelector("[data-cm]"), u = cmWithFilters(inp.value, d.lang);
     if (!u){ inp.setCustomValidity("Kein Cardmarket-Link"); inp.reportValidity(); return; }
@@ -1356,7 +1403,15 @@ function render(item){
     const f = el.dataset.f;
     if (f === "pick"){ if (el.value === "") return; d.setSure = true; const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; render(item); renderExport(); findCardmarket(item); return; }
     d[f] = el.value.trim();
-    if (f === "name"){ d.nameTouched = true; d.enName = d.name; }
+    item.referenceRevision=(item.referenceRevision || 0)+1;
+    d.referenceState="";d.referenceSource="";d.cmFound="";d.cmPrices="";
+    if (f === "name"){
+      d.nameTouched = true;
+      const title=matchLatinName(d.name,d.lang);
+      d.enName=title?.d===0?title.en:d.name;
+      d.observedName=["de","en"].includes(d.lang)?d.name:"";
+      d.preferredSetId="";d.setSure=false;
+    }
     if (f === "code") d.codeSure = true;
     if (f === "number"){ d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
     if (f === "lang") d.langSure = true;
@@ -1479,6 +1534,7 @@ function requestViaGitHub(){
 }
 
 /* ---------- setup ---------- */
+staticReferences().then(cards=>{const el=$("#referenceStatus");if(el)el.textContent=cards.length?`${cards.filter(c=>c.cachedImage).length} Referenzbilder verfügbar. Weitere deutsche und englische Karten: TCGdex-Katalog.`:location.hostname.endsWith(".github.io")?"Referenzsammlung noch nicht verfügbar. Text- und TCGdex-Erkennung bleiben verfügbar.":"Live-Referenzsuche auf diesem Server verfügbar.";});
 $("#cseId").value = cseId();
 function updateSetupSummary(){
   if (LOCAL) return;

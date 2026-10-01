@@ -11,7 +11,7 @@ const ctx = vm.createContext({
   cseSearch: async () => { searches++; return []; },
   searchQuery: d => [d.name, d.number, d.code].join('|'),
   cardKey: d => [d.number, d.code].join('|'),
-  slugOf: () => '', decodeURIComponent
+  slugOf: () => '', extractCardmarket: u => u && u.startsWith('https://www.cardmarket.com/') ? u : '', decodeURIComponent
 });
 vm.runInContext(code, ctx);
 (async () => {

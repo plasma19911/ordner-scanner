@@ -2,7 +2,7 @@
   "name": "ordner-scanner",
   "private": true,
   "scripts": {
-    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs",
+    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs",
     "build": "node build.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"

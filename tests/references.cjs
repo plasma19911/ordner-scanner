@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 (async()=>{
-  const {parseReferences,validImage,referenceSearch}=await import('../src/reference-source.mjs');
+  const {parseReferences,validImage,referenceSearch,fetchReference}=await import('../src/reference-source.mjs');
   const tile=(href,name,set,number,image)=>`<a href="${href}" class="card-item"><img src="${image}"><span class="card-name">${name}</span><span class="card-number">${number}</span><span class="card-set">${set}</span></a>`;
   const image='https://www.pokemonkarte.de/jap_img/kaarten/adv5-9.webp';
   const cards=parseReferences(tile('/japanse-kaart?kaart=adv5-9','Heracross','Undone Seal','009/083',image),'ja');
@@ -9,6 +9,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
   assert.equal(parseReferences(tile('https://evil.example/karte/test','Entei','Test','1/10',image),'en').length,0);
   for(const url of ['https://evil.example/a.png','https://www.pokemonkarte.de/api/a.png','https://www.pokemonkarte.de/wp-content/uploads/../../api/a.png',image+'?url=x'])assert.equal(validImage(url),null);
   assert.equal(parseReferences(Array.from({length:81},(_,i)=>tile('/karte/test-'+i,'Entei','Test','1/10',image)).join(''),'en').length,0);
+  let hops=0;
+  const redirected=await fetchReference('https://www.pokemonkarte.de/search?q=Heracross',async url=>{
+    hops++;return hops===1?new Response('',{status:302,headers:{Location:'/suche?q=Heracross'}}):new Response('ok');
+  });
+  assert.equal(hops,2);assert.equal(await redirected.text(),'ok');
+  await assert.rejects(()=>fetchReference('https://www.pokemonkarte.de/search',async()=>new Response('',{status:302,headers:{Location:'https://evil.example/search'}})));
   let requested;await referenceSearch('ja','Erika\'s Bulbasaur',async(url)=>{requested=new URL(url);return {ok:true,text:async()=>''}});
   assert.equal(requested.pathname,'/japanse-search');assert.equal(requested.searchParams.get('q'),"Erika's Bulbasaur");
   await assert.rejects(()=>referenceSearch('xx','Entei'));
@@ -35,11 +41,11 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
     {lang:'ja',langSure:true,vintageSet:'Mystery of the Fossils',number:'',enName:'Muk'},
     {lang:'ja',langSure:true,vintageSet:"Leaders' Stadium",number:'',enName:"Erika's Bulbasaur"}
   ]){const item={data};await ctx.findCardmarket(item);assert.equal(item.data.cmState,'found');assert.match(item.data.cmFound,/^https:\/\/www\.cardmarket\.com\/de\/Pokemon\/Products\/Singles\//);}
-  vm.runInContext(html.slice(html.indexOf('const PTCG_SETS'),html.indexOf('/* ---------- link memory')),ctx);
+  vm.runInContext(html.slice(html.indexOf('const CM_PRODUCTS_BY_ID'),html.indexOf('/* ---------- link memory')),ctx);
   for(const [setId,number,target] of [['base1','030/102','base1-30'],['ecard3','008/144','ecard3-8'],['sm3.5','074/073','sm35-74'],['swsh12.5gg','GG36/GG70','swsh12pt5gg-GG36']]){
-    const item={data:{lang:'de',langSure:true,setSure:true,setId,number}};await ctx.findCardmarket(item);assert.equal(item.data.cmState,'prices');assert.equal(item.data.cmPrices,'https://prices.pokemontcg.io/cardmarket/'+target);
+    const item={data:{lang:'de',langSure:true,setSure:true,setId,number}};await ctx.findCardmarket(item);assert.equal(item.data.cmState,'prices');assert.match(item.data.cmPrices,/^https:\/\/www\.cardmarket\.com\//);
   }
-  assert.equal(ctx.pricesLink({lang:'en',setId:'ecard3',number:'8/144'}),'https://prices.pokemontcg.io/cardmarket/ecard3-8');
+  assert.equal(ctx.pricesLink({lang:'en',setId:'ecard3',number:'8/144'}),'https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Flareon-V2-SK8');
   const worker=(await import('../src/worker.mjs')).default;
   const env={ASSETS:{fetch:async()=>new Response('asset')}};
   assert.equal(await (await worker.fetch(new Request('https://scanner.test/index.html'),env)).text(),'asset');
