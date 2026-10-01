@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm install --no-save --package-lock=false sharp@0.34.5
       - run: node scripts/cache-references.mjs
       - run: npm run build
       - name: Save public reference collection on this branch

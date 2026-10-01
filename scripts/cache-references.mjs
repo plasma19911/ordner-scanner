@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {referenceSearch,validImage,fetchReference} from '../src/reference-source.mjs';
@@ -26,10 +27,11 @@ const task=async()=>{while(next<images.length){
  try{
   const r=await fetchReference(safe.href);
   if(!r.ok || !/^image\//.test(r.headers.get('content-type') || ''))throw new Error('Image unavailable');
-  const data=Buffer.from(await r.arrayBuffer());
-  if(data.length>2000000)throw new Error('Reference image too large');
+  const original=Buffer.from(await r.arrayBuffer());
+  if(original.length>4000000)throw new Error('Reference image too large');
+  const data=await sharp(original).resize({height:1000,withoutEnlargement:true}).webp({quality:92}).toBuffer();
   totalBytes+=data.length;if(totalBytes>64000000)throw new Error('Reference collection exceeded 64 MB');
-  const ext=safe.pathname.match(/\.(png|jpe?g|webp)$/i)[1].toLowerCase();
+  const ext='webp';
   const path='reference-images/'+createHash('sha256').update(url).digest('hex').slice(0,24)+'.'+ext;
   await writeFile(path,data);cached.set(url,path);
  }catch(e){
