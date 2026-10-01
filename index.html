@@ -245,35 +245,54 @@ function singleCandidates(cv, small){
   for (const r of found) if (out.every(o => Math.hypot(r.cx - o.cx, r.cy - o.cy) > 25 || Math.abs(r.w * r.h - o.w * o.h) > 0.08 * o.w * o.h)) out.push(r);
   return out.slice(0, 4);
 }
+function selectCardRects(found){
+  const area = r => r.w * r.h;
+  const inside = (r, o) => {
+    const t = -o.angle * Math.PI / 180, dx = r.cx-o.cx, dy = r.cy-o.cy;
+    return Math.abs(dx*Math.cos(t)-dy*Math.sin(t)) < o.w/2 &&
+      Math.abs(dx*Math.sin(t)+dy*Math.cos(t)) < o.h/2;
+  };
+  // A pair of sideways cards can have the aspect ratio of ONE upright card.
+  // Keep the separate rectangles instead of letting the enclosing pair hide them.
+  const separate = found.filter(o => {
+    const children = found.filter(r => r !== o && area(r) > area(o)*0.28 &&
+      area(r) < area(o)*0.65 && inside(r,o));
+    return !children.some((r,i) => children.slice(i+1).some(s =>
+      !inside(r,s) && !inside(s,r) && area(r)+area(s) > area(o)*0.68));
+  }).sort((a,b) => area(b)-area(a));
+  const out = [];
+  for (const r of separate){
+    if (out.some(o => inside(r,o))) continue;
+    out.push(r);
+  }
+  // Filter artwork only AFTER removing rectangles enclosing multiple cards.
+  const largest = out.length ? area(out[0]) : 0;
+  return out.filter(r => area(r) >= largest*0.35);
+}
 function detectRects(cv, small){
   const src = cv.imread(small), g = new cv.Mat(), e = new cv.Mat();
   cv.cvtColor(src, g, cv.COLOR_RGBA2GRAY);
   cv.GaussianBlur(g, g, new cv.Size(5, 5), 0);
   cv.Canny(g, e, 40, 120);
-  const k = cv.Mat.ones(5, 5, cv.CV_8U); cv.dilate(e, e, k);
-  const cs = new cv.MatVector(), hi = new cv.Mat();
-  cv.findContours(e, cs, hi, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
   const A = small.width * small.height, found = [];
-  for (let i = 0; i < cs.size(); i++){
-    const c = cs.get(i), r = cv.minAreaRect(c);
-    const w = r.size.width, h = r.size.height, a = w * h, ar = Math.max(w, h) / Math.max(1, Math.min(w, h));
-    if (a > 0.015 * A && a < 0.8 * A && ar > 1.25 && ar < 1.6) found.push({cx: r.center.x, cy: r.center.y, w, h, angle: r.angle});
-    c.delete();
+  // Light dilation keeps neighbouring sleeve edges from merging.
+  for (const size of [1, 3, 5]){
+    const edges = new cv.Mat(), k = cv.Mat.ones(size,size,cv.CV_8U);
+    cv.dilate(e,edges,k);
+    const cs = new cv.MatVector(), hi = new cv.Mat();
+    cv.findContours(edges,cs,hi,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+    for (let i=0;i<cs.size();i++){
+      const c=cs.get(i), r=cv.minAreaRect(c), w=r.size.width, h=r.size.height;
+      const ar=Math.max(w,h)/Math.max(1,Math.min(w,h)), a=w*h;
+      if(a>0.015*A && a<0.95*A && ar>1.25 && ar<1.6 &&
+        Math.abs(cv.contourArea(c))/a>0.65)
+        found.push({cx:r.center.x,cy:r.center.y,w,h,angle:r.angle});
+      c.delete();
+    }
+    [edges,k,cs,hi].forEach(m=>m.delete());
   }
-  [src, g, e, k, cs, hi].forEach(m => m.delete());
-  found.sort((a, b) => b.w * b.h - a.w * a.h);
-  const maxA = found.length ? found[0].w * found[0].h : 0;
-  const inside = (r, o) => { // is r's center inside rotated rect o?
-    const t = -o.angle * Math.PI / 180, dx = r.cx - o.cx, dy = r.cy - o.cy;
-    const x = dx * Math.cos(t) - dy * Math.sin(t), y = dx * Math.sin(t) + dy * Math.cos(t);
-    return Math.abs(x) < o.w / 2 && Math.abs(y) < o.h / 2;
-  };
-  const out = [];
-  for (const r of found){
-    if (r.w * r.h < maxA * 0.5) continue;           // artwork frames and other small boxes
-    if (out.some(o => inside(r, o))) continue;      // nested in an already found card
-    out.push(r);
-  }
+  [src,g,e].forEach(m=>m.delete());
+  const out = selectCardRects(found);
   // reading order: rows by y, then x
   const hMed = out.length ? out.map(r => Math.min(r.w, r.h)).sort((a,b) => a-b)[out.length >> 1] : 1;
   out.sort((a, b) => Math.abs(a.cy - b.cy) > hMed * 0.5 ? a.cy - b.cy : a.cx - b.cx);
@@ -719,7 +738,7 @@ async function processPhoto(file, cv){
   let cards = [], rectCount = 0;
   if (cv){
     const {c: small, s} = scaledCanvas(img, 1400);
-    try { const rects = detectRects(cv, small); rectCount = rects.length; if (rects.length >= 2) cards = rects.map(r => ({c: extractCard(img, r, s), pos: posLabel(r)})); } catch(e){ console.warn(e); }
+    try { const rects = detectRects(cv, small); rectCount = rects.length; if (rects.length >= 1) cards = rects.map(r => ({c: extractCard(img, r, s), pos: posLabel(r)})); } catch(e){ console.warn(e); }
   }
   if (!cards.length){ // one card on the photo (or nothing detected): read the whole photo
     sub.textContent = "Einzelkarte";
