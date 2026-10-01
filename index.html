@@ -85,6 +85,17 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 .paste.bulk{margin:0 0 10px}
 .paste input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--paper);color:var(--ink);font-size:14px}
 .btn.small{padding:6px 12px;font-size:14px}
+.crop-review{width:min(960px,96vw);max-height:95dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:16px}
+.crop-review::backdrop{background:rgba(0,0,0,.8)}
+.review-photo{display:block;width:100%;touch-action:none;cursor:crosshair}
+.review-tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+.review-tools button,.review-tools input{background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:6px}
+.review-tools input{width:60px}
+.review-crops{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.review-crops button{background:var(--paper);color:var(--ink);border:2px solid var(--line);border-radius:8px;padding:4px;cursor:pointer}
+.review-crops button.selected{border-color:var(--pika)}
+.review-crops img{width:100%;height:140px;object-fit:contain;display:block}
+.review-actions{position:sticky;bottom:-16px;background:var(--card);padding:12px 0;display:flex;gap:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -150,6 +161,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 <script src="image-match.js"></script>
+<script src="card-review.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
@@ -255,6 +267,18 @@ function selectCardRects(found){
   // A pair of sideways cards can have the aspect ratio of ONE upright card.
   // Keep the separate rectangles instead of letting the enclosing pair hide them.
   const separate = found.filter(o => {
+    // A page-sized contour can enclose four or more cards. Its children are
+    // smaller than the old 28% threshold. Require repeated, independent card
+    // rectangles across the photo before removing that enclosing contour.
+    const smaller = found.filter(r => r !== o && area(r) > area(o)*0.10 && area(r) < area(o)*0.40);
+    for (const seed of smaller){
+      const peers = [];
+      for (const r of smaller.filter(r => area(r)>area(seed)*0.75 && area(r)<area(seed)*1.33)){
+        if (peers.every(p => !inside(r,p) && !inside(p,r))) peers.push(r);
+      }
+      const children = peers.filter(r => inside(r,o));
+      if (peers.length >= 3 && children.length >= 2 && children.reduce((n,r)=>n+area(r),0)>area(o)*0.32) return false;
+    }
     const children = found.filter(r => r !== o && area(r) > area(o)*0.28 &&
       area(r) < area(o)*0.65 && inside(r,o));
     return !children.some((r,i) => children.slice(i+1).some(s =>
@@ -294,7 +318,7 @@ function completeGrid(rects, small){
       out.push(centers[i]);
       if (i + 1 < centers.length){ const k = Math.round((centers[i + 1] - centers[i]) / pitch); for (let j = 1; j < k; j++) out.push(centers[i] + j * (centers[i + 1] - centers[i]) / k); }
     }
-    const fits = v => v - size / 2 >= -0.1 * size && v + size / 2 <= limit + 0.1 * size;
+    const fits = v => v - size / 2 >= -0.2 * size && v + size / 2 <= limit + 0.2 * size;
     while (fits(out[0] - pitch)) out.unshift(out[0] - pitch);
     while (fits(out[out.length - 1] + pitch)) out.push(out[out.length - 1] + pitch);
     return out.filter(fits);
@@ -305,15 +329,17 @@ function completeGrid(rects, small){
   const g = small.getContext("2d", {willReadFrequently: true});
   const added = [];
   for (const y of ys) for (const x of xs){
-    if (all.some(r => Math.abs(r.cx - x) < 0.45 * AX && Math.abs(r.cy - y) < 0.45 * AY)) continue;
+    if (all.some(r => r.ax > AX*0.65 && r.ay > AY*0.65 && Math.abs(r.cx - x) < 0.45 * AX && Math.abs(r.cy - y) < 0.45 * AY)) continue;
     // empty pocket = dark binder shows through; skip it
     const sx = Math.max(0, Math.round(x - AX * 0.3)), sy = Math.max(0, Math.round(y - AY * 0.3));
     const sw = Math.min(W - sx, Math.round(AX * 0.6)), sh = Math.min(H - sy, Math.round(AY * 0.6));
     if (sw < 4 || sh < 4) continue;
-    const p = g.getImageData(sx, sy, sw, sh).data; let v = 0, n = 0;
-    for (let i = 0; i < p.length; i += 16){ v += Math.max(p[i], p[i + 1], p[i + 2]); n++; }
-    if (v / n < 95) continue;
-    added.push({cx: x, cy: y, w: AX * 0.97, h: AY * 0.97, angle: 0});
+    const p = g.getImageData(sx, sy, sw, sh).data; let v = 0, n = 0, colored = 0, bright = 0;
+    for (let i = 0; i < p.length; i += 16){ const hi=Math.max(p[i],p[i+1],p[i+2]),lo=Math.min(p[i],p[i+1],p[i+2]); v+=hi; colored+=hi-lo>30; bright+=lo>170; n++; }
+    if (v / n < 95 || (colored/n < 0.06 && bright/n < 0.35)) continue;
+    const x0=Math.max(0,x-AX*0.485), x1=Math.min(W,x+AX*0.485);
+    const y0=Math.max(0,y-AY*0.485), y1=Math.min(H,y+AY*0.485);
+    added.push({cx:(x0+x1)/2,cy:(y0+y1)/2,w:x1-x0,h:y1-y0,angle:0,inferred:true});
   }
   return rects.concat(added);
 }
@@ -395,7 +421,12 @@ function cleanPart(s){
   const m = s.match(/^([A-Z]*)(.*)$/);
   return m[1] + m[2].replace(/O/g, "0").replace(/[IL|]/g, "1");
 }
+function normalizePrintedNumberText(text){
+  return String(text || "").normalize("NFKC").replace(/\b(\d{2})[ \t]+(\d{2})\s*\/\s*(\d{2})(?!\d)/g,(all,card,variant,total)=>
+    +card>0 && +variant>0 && +variant<=+total && +total<20 ? card+variant+"/"+total : all);
+}
 function findNumbers(text){
+  text=normalizePrintedNumberText(text);
   const out = [];
   for (const m of text.matchAll(NUM_RE_G)){ const n = findNumber(m[0]); if (n) out.push(n); }
   const promo = findPromoNumber(text); if (promo) out.push(promo);
@@ -419,10 +450,12 @@ function specialNumber(num){
   return !!(m && +m[1] > 0 && +m[2] > 0 && +m[2] <= +m[3]);
 }
 function findChineseCode(text){
-  return (String(text || "").toUpperCase().match(/\bC(?:BB|SM|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
+  const t=String(text || "").normalize("NFKC").toUpperCase();
+  const spaced=t.match(/\bC\s*(BB|SM|S|M)\s*(\d{1,2}(?:\.\d)?[A-Z]?)\s*C\b/);
+  return spaced ? "C"+spaced[1]+spaced[2]+"C" : (t.match(/\bC(?:BB|SM|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
 }
 function findNumber(text){
-  text = String(text || "").normalize("NFKC");
+  text = normalizePrintedNumberText(text);
   const m = text.match(NUM_RE); if (!m) return findPromoNumber(text);
   let a = cleanPart(m[1]), b = cleanPart(m[2]);
   const known = /^(SV|GG|TG|RC|H|SH)$/;
@@ -826,19 +859,16 @@ async function processPhoto(file, cv){
 
   setStatus(`Foto ${n}: suche Karten …`);
   const originalThumb=scaledCanvas(img,2400).c.toDataURL("image/jpeg",0.9);
-  let cards = [], rectCount = 0;
-  if (cv){
-    const {c: small, s} = scaledCanvas(img, 1400);
-    try { const rects = detectRects(cv, small); rectCount = rects.length; if (rects.length >= 1) cards = rects.map(r => ({c: extractCard(img, r, s), pos: posLabel(r)})); } catch(e){ console.warn(e); }
+  const {c: small, s} = scaledCanvas(img, 1400);
+  let rects = [];
+  if (cv) try { rects = detectRects(cv, small); } catch(e){ console.warn(e); }
+  setStatus(`Foto ${n}: Ausschnitte prüfen – genau eine Karte pro Rahmen.`);
+  const reviewed = await CardReview.review(small, rects, {photo:n,extract:r=>extractCard(img,r,s)});
+  if (reviewed === null || !reviewed.length){
+    sub.textContent = "Übersprungen – keine Karten übernommen";
+    const P=progressState;setProgress((P.photo+1)/P.total);return;
   }
-  if (!cards.length){ // one card on the photo (or nothing detected): read the whole photo
-    sub.textContent = "Einzelkarte";
-    setStatus(`Foto ${n}: lese Einzelkarte …`);
-    await readOneCard(img, list, cv, originalThumb);
-    const P = progressState; setProgress((P.photo + 1) / P.total);
-    sub.textContent = "1 Karte";
-    return;
-  }
+  const cards = reviewed.map((r,i)=>({c:extractCard(img,r,s),pos:`Karte ${i+1}`}));
   sub.textContent = `${cards.length} Karte${cards.length === 1 ? "" : "n"} gefunden`;
 
   const P = progressState, base = P.photo / P.total, span = 1 / P.total;
@@ -1343,7 +1373,24 @@ function cseSearch(q){
   });
   return FINDER.queue;
 }
+// Printed Gem Pack numbers contain a card number followed by a foil-variant
+// number (e.g. 0304/09). Cardmarket uses CBB1C 03, with separate variants.
+// Only these observed and checked aliases are mapped; never guess a V suffix.
+function gemPackIdentity(d){
+  if(d.lang!=="zh") return null;
+  const printed=String(d.code || d.printedCode || "").toUpperCase();
+  const aliases={CM1C:["CBB1C","Gem-Pack-Vol-1"],CBB1C:["CBB1C","Gem-Pack-Vol-1"],CM3C:["CBB3C","Gem-Pack-Vol-3"],CBB3C:["CBB3C","Gem-Pack-Vol-3"]};
+  const set=aliases[printed],m=/^(\d{2})(\d{2})\/(\d{1,2})$/.exec(d.number || "");
+  if(!set || !m || +m[1]<1 || +m[2]<1 || +m[2]>+m[3])return null;
+  return {code:set[0],set:set[1],number:m[1],variant:+m[2],variants:+m[3]};
+}
+function cardmarketBrowseUrl(d){
+  const gem=gemPackIdentity(d);
+  return gem ? "https://www.cardmarket.com/de/Pokemon/Products/Singles/"+gem.set : "";
+}
 function searchQuery(d){
+  const gem=gemPackIdentity(d);
+  if(gem) return [d.enName || d.local || d.name,gem.code,gem.number].filter(Boolean).join(" ");
   if (d.vintageSet) return [d.enName || d.local, d.vintageSet].filter(Boolean).join(" ");
   if (d.lang === "zh") return [d.enName || d.local || d.name,d.code,d.number].filter(Boolean).join(" ");
   const numerator = (d.number || "").split("/")[0];
@@ -1358,6 +1405,9 @@ async function findCardmarket(item){
   if (!d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
+  // Gem Pack foil versions share one Cardmarket collector number. A first
+  // search result cannot certify which printed foil version is on the photo.
+  if(gemPackIdentity(d)){d.cmState="ambiguous";render(item);renderExport();return;}
   d.cmPrices = pricesLink(d);
   if (d.cmPrices){ d.cmState = "prices"; render(item); renderExport(); return; }   // exact product page, no search needed
   if (!cseId() || !(d.number || d.vintageSet)) return;
@@ -1383,6 +1433,21 @@ function cmLink(d){ return cmWithFilters(d.cmFound || d.cmPrices || "", d.lang) 
 /* ---------- verified direct Cardmarket products ---------- */
 // Unknown products stay searchable; redirect services are never labelled as Cardmarket links.
 const CM_PRODUCTS_BY_ID = {
+  "bw6-19": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Dragons-Exalted/Ninetales-DRX19",
+  "svp-SVP192": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SV-Black-Star-Promos/Fuecoco-SVP192",
+  "ecard3-109": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
+  "ecard3-110": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Ursaring-SK110",
+  "ecard3-113": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Voltorb-SK113",
+  "ecard3-36": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Electrode-SK36",
+  "xy6-81": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Unfezant-ROS81",
+  "xy6-72": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Swellow-ROS72",
+  "g1-55": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Generations/Doduo-GEN55",
+  "swsh3-140": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+  "sm12-172": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Cosmic-Eclipse/Ursaring-CEC172",
+  "swsh12.5-21": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-CRZ021",
+  "sv04.5-151": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paldean-Fates/Natu-V2-PAF151",
+  "swsh4.5sv-SV047": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Ponyta",
+  "swsh4.5sv-SV048": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Rapidash-SHFSV48",
   "swshp-SWSH244": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
   "base1-30": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Base-Set/Ivysaur-V1-BS30",
   "ecard3-8": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Flareon-V2-SK8",
@@ -1462,7 +1527,8 @@ window.addEventListener("focus", () => setTimeout(tryClipboard, 300));
 
 /* ---------- output ---------- */
 function googleUrl(d){
-  const parts = ["cardmarket", d.enName || d.name, d.vintageSet || d.code || d.set, d.number || (d.dexNo ? "No." + d.dexNo : ""), (d.lang === "ja" ? "japanese" : "")];
+  const gem=gemPackIdentity(d);
+  const parts = ["site:cardmarket.com", d.enName || d.name || d.local, gem ? gem.code : d.vintageSet || d.code || d.enSet || d.set, gem ? gem.number : /^DPBP#/.test(d.number || "") ? "" : d.number || (d.dexNo ? "No." + d.dexNo : ""), d.lang === "ja" ? "japanese" : d.lang === "zh" ? "chinese" : ""];
   return "https://www.google.de/search?q=" + encodeURIComponent(parts.filter(Boolean).join(" "));
 }
 
@@ -1502,6 +1568,8 @@ function render(item){
   const setOpts = d.options.length > 1 || (d.options.length && !d.setSure)
     ? `<label>Treffer<select data-f="pick"><option value=""${!d.setSure ? " selected" : ""}>Bitte Karte / Set auswählen</option>${d.options.map((o, i) => `<option value="${i}"${d.setSure && o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
   const flags = [];
+  const gem=gemPackIdentity(d);
+  if(gem) flags.push(`Cardmarket: ${gem.code} ${gem.number}. Gedruckte Variante ${gem.variant}/${gem.variants} – Holo-Muster vergleichen.`);
   if (!d.number && d.vintageSet) {}
   else if (!d.number && d.dexNo) flags.push("Alte Karte ohne Set-Nummer – Set unbekannt");
   else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
@@ -1515,7 +1583,7 @@ function render(item){
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
-  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Direkter Produktlink mit Kartensprache, Near Mint und deutschen Händlern.</div>`;
+  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Produktseite mit Kartensprache, Near Mint und deutschen Händlern. Holo, Reverse und Stempel bitte am Foto prüfen.</div>`;
   else if (d.cmState === "searching") cm = `<div class="cm wait">Suche Cardmarket-Link …</div>`;
   else if (d.cmState === "ambiguous") cm = `<div class="cm miss">Für den richtigen Link zuerst Karte / Set bestätigen.</div>`;
   else if (d.cmState === "none") cm = `<div class="cm miss">Kein Cardmarket-Treffer</div>`;
@@ -1527,6 +1595,7 @@ function render(item){
 
   item.el.innerHTML = `
     <button class="tilethumb" type="button" data-zoom aria-label="Karte groß anzeigen"><img src="${item.thumb}" alt="Gescannte Karte"></button>
+    ${gem ? `<a class="google" href="${esc(cardmarketBrowseUrl(d))}" target="_blank" rel="noopener">Gem-Pack-Varianten auf Cardmarket</a>` : ""}
     ${item.pos ? `<div class="pos">${esc(item.pos)}</div>` : ""}
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
     <div class="meta">${esc(d.vintageSet || setLabel(d))} · ${esc(d.number || (d.dexNo ? "No. " + d.dexNo : "Nr. ?"))} · ${LANGS[d.lang]}</div>
@@ -1671,7 +1740,7 @@ function applyMemory(){
   if (n) renderExport();
   return n;
 }
-function missingCards(){ return allCards.filter(it => !it.data.cmFound && !it.data.cmPrices && (it.data.number || it.data.vintageSet) && cardKey(it.data)); }
+function missingCards(){ return allCards.filter(it => !it.data.cmFound && !it.data.cmPrices && !gemPackIdentity(it.data) && (it.data.number || it.data.vintageSet) && cardKey(it.data)); }
 function updateGhButton(){
   const b = $("#ghBtn"); if (!b) return;
   const n = new Set(missingCards().map(it => cardKey(it.data))).size;

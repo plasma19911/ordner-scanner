@@ -5,7 +5,7 @@ const html = fs.readFileSync('index.html', 'utf8');
 const code = html.slice(html.indexOf('async function findCardmarket('), html.indexOf('function cmLink('));
 let searches = 0;
 const ctx = vm.createContext({
-  render() {}, renderExport() {}, memGet: () => '', memSet() {},
+  gemPackIdentity:()=>null, render() {}, renderExport() {}, memGet: () => '', memSet() {},
   pricesLink: d => d.setId === 'base1' ? 'https://prices.pokemontcg.io/cardmarket/base1-30' : '',
   cseId: () => 'configured',
   cseSearch: async () => { searches++; return []; },

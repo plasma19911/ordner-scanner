@@ -25,3 +25,21 @@ Für eine breite Abdeckung sind als nächste Ausbaustufen nötig:
 - Ein fester Fototestsatz mit manuell geprüfter Sollkarte pro Ausschnitt. Getrennt messen: Ausschnitte, Name, Nummer, Set, Sprache, Variante und Produktlink. Neue unbekannte Karten gehören in einen unabhängigen Testsatz, damit Verbesserungen nicht nur auf bekannte Fotos passen.
 
 Validiert sind die automatisierten Regressionstests und der Build. Diese Änderung enthält keinen abgeschlossenen End-to-End-Test aller hochgeladenen Fotos und keine Zusage, jede Karte oder Variante zu erkennen.
+
+## Einzelkarten-Vorschau (01.10.2026)
+
+Jedes Foto wird vor der Texterkennung als Ausschnitt-Vorschau angezeigt.
+Prüfe dort, dass jedes Vorschaubild genau eine Karte enthält. Du kannst Rahmen
+mit Maus oder Finger hinzufügen, über die Miniatur auswählen und löschen.
+Ein ausgewählter Rahmen lässt sich über Spalten und Zeilen aufteilen.
+„Karten erkennen“ verarbeitet nur diese Ausschnitte; „Foto überspringen“
+verarbeitet nichts. Wenn OpenCV nichts findet oder nicht lädt, wird das Foto
+nicht mehr stillschweigend als Einzelkarte eingelesen. Die Rahmen können dann
+von Hand gesetzt werden. Vollständige Einzelkarten können über „Ganzes Foto
+als Rahmen“ übernommen werden.
+
+Der Test mit acht tatsächlichen Uploads ergibt 57 einzelne Kartenausschnitte,
+vorher 49 Rahmen einschließlich einer großen Fehlmarkierung. Die genaue
+Abdeckung, gefundenen Produktlinks und weiterhin offenen Varianten stehen in
+[der Fotoprüfung](tests/photo-validation-2026-10-01.md). Zuschnitt-Erfolg und
+sichere Karten-/Varianten-Erkennung werden getrennt bewertet.

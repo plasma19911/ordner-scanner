@@ -32,6 +32,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
   assert.equal(ctx.CardMatcher.certain([good]),true);assert.equal(ctx.CardMatcher.certain([badge]),false);
   assert.equal(ctx.CardMatcher.certain([good,{match:{...good.match,score:76}}]),false);
   vm.runInContext(html.slice(html.indexOf('function cardKey('),html.indexOf('function memGet(')),ctx);
+  vm.runInContext(html.slice(html.indexOf('function gemPackIdentity'),html.indexOf('async function findCardmarket')),ctx);
   vm.runInContext(html.slice(html.indexOf('async function findCardmarket('),html.indexOf('function cmLink(')),ctx);
   const links=JSON.parse(fs.readFileSync('links.json','utf8'));
   Object.assign(ctx,{render(){},renderExport(){},memGet:d=>links[ctx.cardKey(d)] || '',cseId:()=>'',pricesLink:()=>''});

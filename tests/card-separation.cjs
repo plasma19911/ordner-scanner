@@ -13,3 +13,8 @@ assert.deepEqual(select([]),[]);
 const turn=r=>({...r,cx:400-r.cy,cy:r.cx,angle:90});
 assert.equal(select([outer,left,right].map(turn)).length,2);
 console.log("Card separation regression tests passed");
+const envelope=JSON.parse(fs.readFileSync('tests/fixtures/binder-envelope-contours.json'));
+const separated=select(envelope);
+assert.equal(separated.length,6,'six detected single cards survive the page envelope; grid later fills the missing column');
+assert.ok(separated.every(r=>r.w*r.h<160000),'no page-sized rectangle survives');
+assert.equal(select(envelope.map(turn)).length,6,'rotation does not restore the enclosing page');
