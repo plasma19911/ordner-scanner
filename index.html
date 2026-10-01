@@ -148,6 +148,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+<script src="image-match.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
@@ -576,7 +577,7 @@ async function visualPick(card, cands){
 function numberOf(c){
   const sv = /^[A-Z]+\d+$/i.test(c.localId);
   const n = sv ? c.localId.toUpperCase() : String(parseInt(c.localId, 10)).padStart(3, "0");
-  const total = sv ? c.localId.replace(/\d+$/, "").toUpperCase() + String(c.official).padStart(3, "0") : String(c.official).padStart(3, "0");
+  const total = sv ? c.localId.replace(/\d+$/, "").toUpperCase() + String(c.official) : String(c.official).padStart(3, "0");
   return n + "/" + total;
 }
 
@@ -943,6 +944,93 @@ async function readCard(card, list, pos){
   return finishCard(c, list, pos, best, lg, code, plausible, {dexNo});
 }
 
+const REFERENCE_CACHE = new Map(), RECENT_REFERENCE_NAMES = [];
+const referenceFamily = s => (s || "").replace(/\s*(?:VMAX|VSTAR|V-UNION|GX|EX|ex|V)\s*$/i, "").trim();
+const referenceNormalize = s => (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+async function referenceCards(lang, name){
+  const key = lang + "|" + name;
+  if (!REFERENCE_CACHE.has(key)) REFERENCE_CACHE.set(key, fetch(`/api/references?lang=${lang}&q=${encodeURIComponent(name)}`).then(r => {if(!r.ok) throw new Error("References unavailable");return r.json();}).then(r => r?.cards || []).catch(() => {REFERENCE_CACHE.delete(key);return [];}));
+  return REFERENCE_CACHE.get(key);
+}
+async function referenceMetadata(ref){
+  if (ref.lang === "ja"){
+    const setId = ref.slug.slice(0, ref.slug.lastIndexOf("-"));
+    // Old Japanese cards have a Pokédex number, not the western collector number.
+    const vintage = /^(?:B0[1-6]|pmcg[1-6]|neo[1-4]|unp|unnum|unnumbered)/i.test(setId) || /^(?:Expansion Pack|Pokemon Jungle|Pokémon Jungle|Mystery of the Fossils|Rocket Gang|Leaders'? Stadium|Challenge from the Darkness|Unnumbered Promos|Gold Silver to a New World|Crossing the Ruins|Awakening Legends|Darkness and to Light)/i.test(ref.set);
+    if (!ref.number && !vintage) return null;
+    return {...ref,setId,code:vintage?"":setId.toLowerCase(),vintageSet:vintage?(ref.set === "Leaders Stadium" ? "Leaders' Stadium" : ref.set):"",number:vintage?"":ref.number};
+  }
+  const sets = [...await getSets(ref.lang), ...(ref.lang === "de" ? await getSets("en") : [])], total = parseInt(ref.number.split("/")[1],10);
+  // Several old records on the reference site contain spreadsheet date serials.
+  // Read the collector ID from the card URL, then use the set catalogue's total.
+  const local = ref.number.split("/")[0] || (ref.slug.match(/-((?:GG|TG|SV)?\d{1,3})-[a-z0-9]+$/i) || [])[1];
+  if (!local) return null;
+  const prefix = (local.match(/^[a-z]+/i) || [""])[0].toLowerCase(), wanted = referenceNormalize(ref.set);
+  const matching = [...new Map(sets.filter(s => {
+    const nm = referenceNormalize(s.name), id = s.id.toLowerCase();
+    return (nm === wanted || (prefix && nm.startsWith(wanted))) && s.cardCount?.official &&
+      (!total || s.cardCount.official === total) && (prefix ? id.endsWith(prefix) : !/(?:gg|tg|sv)$/.test(id));
+  }).map(s => [s.id,s])).values()];
+  if (matching.length !== 1) return null;
+  const st = matching[0];
+  return {...ref,setId:st.id,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:""};
+}
+async function applyReferenceMatch(item, photo){
+  const d = item.data;
+  if (!globalThis.CardMatcher || !window.cv?.ORB || !["de","en","ja"].includes(d.lang)) return;
+  if (d.setSure && d.langSure) return;
+  const printed = d.lang === "ja" ? d.enName : d.observedName || d.name;
+  const family = referenceFamily(printed), unknown = !family;
+  if (family){
+    const at = RECENT_REFERENCE_NAMES.indexOf(family); if(at >= 0) RECENT_REFERENCE_NAMES.splice(at,1);
+    RECENT_REFERENCE_NAMES.push(family); if(RECENT_REFERENCE_NAMES.length > 8) RECENT_REFERENCE_NAMES.shift();
+  }
+  const queries = family ? [family] : RECENT_REFERENCE_NAMES.slice(-4).reverse();
+  if (!queries.length) return;
+  try {
+    let refs = [];
+    for (const q of queries){
+      const found = await referenceCards(d.lang,q), wanted = referenceNormalize(q);
+      refs.push(...found.filter(r => referenceNormalize(referenceFamily(r.name)) === wanted));
+    }
+    refs = [...new Map(refs.map(r => [r.source,r])).values()];
+    const candidates = (await Promise.all(refs.map(referenceMetadata))).filter(Boolean);
+    // The supplementary site omits some prints. Keep the existing open catalogue as a fallback.
+    if (family && ["de","en"].includes(d.lang)) {
+      const raw = await fetch(`https://api.tcgdex.net/v2/${d.lang}/cards?name=like:${encodeURIComponent(family)}`).then(r => r.ok ? r.json() : []).catch(() => []);
+      if (d.lang === "de" && d.enName) {
+        const english = await fetch(`https://api.tcgdex.net/v2/en/cards?name=like:${encodeURIComponent(referenceFamily(d.enName))}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+        raw.push(...english.filter(c=>referenceNormalize(referenceFamily(c.name))===referenceNormalize(referenceFamily(d.enName))).map(c=>({...c,name:family+c.name.slice(referenceFamily(c.name).length)})));
+      }
+      const sets = await getSets(d.lang);
+      for (const c of raw) {
+        if (!c.image || referenceNormalize(referenceFamily(c.name)) !== referenceNormalize(family) || /\/tcgp\//.test(c.image)) continue;
+        const cut=c.id.lastIndexOf("-"), setId=c.id.slice(0,cut), st=sets.find(s=>s.id===setId), local=c.localId || c.id.slice(cut+1);
+        if(!st?.cardCount?.official || candidates.some(r=>r.setId===setId && r.number.split("/")[0].replace(/^0+/,"")===local.replace(/^0+/,""))) continue;
+        candidates.push({name:c.name,lang:d.lang,set:st.name,setId,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:"",image:c.image+"/high.webp",source:c.image+"/high.webp",directImage:true});
+      }
+    }
+    if (!candidates.length) return;
+    const ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `/api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+    if (!ranked.sure){
+      d.referenceState = "uncertain";
+      return;
+    }
+    const r = ranked.list[0];
+    if(r.lang === "de") r.set = (await getSets("de")).find(s=>s.id===r.setId)?.name || r.set;
+    let enName = r.name, enSet = r.set;
+    if (r.lang === "de") {
+      const local=r.number.split("/")[0], id=/^[A-Z]/i.test(local)?local:String(parseInt(local,10));
+      const card = await fetch(`https://api.tcgdex.net/v2/en/cards/${r.setId}-${id}`).then(v=>v.ok?v.json():null).catch(()=>null);
+      enName=card?.name || d.enName || r.name; enSet=card?.set?.name || r.set;
+    }
+    Object.assign(d,{name:r.name,enName,local:r.local || d.local,
+      observedName:r.lang === "ja" ? "" : r.name,number:r.number,set:r.set,enSet,setId:r.setId,
+      preferredSetId:r.setId,code:r.code,codeSure:!!r.code,lang:r.lang,langSure:d.langSure,setSure:true,
+      numSure:false,nameTouched:true,vintageSet:r.vintageSet,referenceSource:r.source,referenceState:"matched"});
+  } catch {d.referenceState = "unavailable";}
+}
+
 async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   let picks = [], latin = null;
   if (["de", "en"].includes(lg.lang)){
@@ -1004,6 +1092,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
+  await applyReferenceMatch(item, c);
   allCards.push(item); list.append(item.el);
   await refreshLookup(item);
 }
@@ -1199,9 +1288,10 @@ function render(item){
   else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
+  if (d.referenceState === "matched") flags.push("Per Referenzbild erkannt – Angaben prüfen");
   if (!d.langSure) flags.push("Sprache unsicher – bitte prüfen");
   if (["de", "en"].includes(d.lang) && d.number && !d.setSure) flags.push("Set nicht eindeutig – Treffer prüfen");
-  if ((d.lang === "ja" || d.lang === "zh") && !d.code) flags.push("Set-Kürzel fehlt");
+  if ((d.lang === "ja" || d.lang === "zh") && !d.code && !d.vintageSet) flags.push("Set-Kürzel fehlt");
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
@@ -1224,6 +1314,7 @@ function render(item){
     ${flags.length ? `<div class="flag">${flags.join(" · ")}</div>` : ""}
     ${!d.number && d.picks && d.picks.length ? `<div class="picks">${d.picks.map((pk, i) => `<button type="button" class="pick" data-pick="${i}">${pk.image ? `<img src="${esc(pk.image)}/low.webp" alt="" loading="lazy">` : ""}<span>${esc(pk.setName)}<br>${esc(numberOf(pk))}</span></button>`).join("")}</div>` : ""}
     ${cm}
+    ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
     <a class="google" href="${esc(googleUrl(d))}" target="_blank" rel="noopener">Bei Google suchen</a>
     ${slugOf(d) ? `<div class="slug">${esc(slugOf(d))}</div>` : ""}
     <details class="fix"${item.open ? " open" : ""}>
