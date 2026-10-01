@@ -96,6 +96,18 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
     <div class="paste"><input id="cseId" placeholder="Worker-Adresse einfügen" aria-label="Worker-Adresse"><button class="btn small" id="cseSave" type="button">Speichern</button></div>
   </details>
 
+  <details class="setup hidden" id="ghSetup">
+    <summary id="ghSummary">Fehlende Links automatisch holen – einmal einrichten</summary>
+    <p>Mit einem GitHub-Schlüssel holt die Seite fehlende Cardmarket-Links nach jedem Scan selbst, ohne dass du etwas antippen musst. Der Schlüssel darf nur Issues in diesem einen Repository anlegen und bleibt nur auf diesem Gerät gespeichert.</p>
+    <ol>
+      <li>Öffne <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
+      <li>Name: <b>Ordner-Scanner</b>. Ablauf: z. B. 1 Jahr. Bei „Repository access“ <b>Only select repositories</b> → <code>ordner-scanner</code>.</li>
+      <li>Unter „Permissions“ bei <b>Issues</b> „Read and write“ wählen. Sonst nichts.</li>
+      <li><b>Generate token</b>, den Schlüssel kopieren, hier einfügen und speichern.</li>
+    </ol>
+    <div class="paste"><input id="ghToken" type="password" placeholder="github_pat_…" aria-label="GitHub-Schlüssel" autocomplete="off"><button class="btn small" id="ghTokenSave" type="button">Speichern</button></div>
+  </details>
+
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
     <strong>Fotos hier reinziehen</strong>
     <div class="actions">
@@ -108,6 +120,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 
   <div class="progress indet" id="bar" role="progressbar" aria-label="Fortschritt" aria-valuemin="0" aria-valuemax="100"><div></div></div>
   <div class="status" id="status" aria-live="polite">Lade Texterkennung …</div>
+  <button class="btn hidden" id="ghBtn" type="button">Fehlende Cardmarket-Links holen</button>
   <div id="results"></div>
 
   <section class="export hidden" id="exportBox">
@@ -130,6 +143,11 @@ const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
 const statusEl = $("#status"), resultsEl = $("#results");
 const allCards = [];
+const GH = (() => {
+  const m = location.hostname.match(/^([a-z0-9-]+)\.github\.io$/i);
+  const repo = location.pathname.split("/").filter(Boolean)[0];
+  return m && repo ? {owner: m[1], repo} : null;
+})();
 let worker = null, busy = false, photoNo = 0, progressState = {done: 0, total: 1, photo: 0};
 
 function setProgress(frac){
@@ -442,6 +460,7 @@ async function processFiles(files){
     for (let i = 0; i < files.length; i++){ progressState.photo = i; await processPhoto(files[i], ok ? window.cv : null); }
     setProgress(1);
     setStatus(`Fertig. ${allCards.length} Karten in der Liste.`);
+    setTimeout(() => autoRequest(), 1500);   // give direct links a moment, then ask GitHub for the rest
   } catch(e){
     console.error(e); setStatus("Da ist etwas schiefgelaufen. Versuch ein anderes Foto.", true);
   } finally {
@@ -648,7 +667,7 @@ function pricesLink(d){
 function cardKey(d){
   const n = (d.number || "").toUpperCase().replace(/\s/g, "");
   const where = (d.code || d.enSet || d.set || "").toLowerCase();
-  return n && where ? where + "|" + n : "";
+  return n && where ? (where + "|" + n).toLowerCase() : "";
 }
 function memGet(d){ try { return (JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"))[cardKey(d)] || ""; } catch(e){ return ""; } }
 function memSet(d, url){
@@ -797,6 +816,7 @@ function render(item){
 }
 
 function renderExport(){
+  updateGhButton();
   $("#exportBox").classList.toggle("hidden", !allCards.length);
   $("#exportText").value = allCards.map(({data: d}) =>
     [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], cmLink(d) || d.cmPrices || "-", googleUrl(d)].join(" | ")).join("\n");
@@ -807,19 +827,105 @@ function renderExport(){
   if (!/^https?:/.test(location.protocol)) return;
   try {
     const r = await fetch("links.json", {cache: "no-store"}); if (!r.ok) return;
-    const shared = await r.json();
-    const m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}");
-    let added = 0; for (const [k, v] of Object.entries(shared)) if (!m[k]){ m[k] = v; added++; }
-    localStorage.setItem("fp_cm_memory", JSON.stringify(m));
-    if (added) console.log(added + " Links aus links.json übernommen");
+    mergeLinks(await r.json()); applyMemory();
   } catch(e){}
 })();
+$("#ghBtn").addEventListener("click", requestViaGitHub);
+if (GH){
+  $("#ghSetup").classList.remove("hidden");
+  const upd = () => { $("#ghSummary").textContent = ghToken() ? "Fehlende Links: automatisch ✓ (ändern)" : "Fehlende Links automatisch holen – einmal einrichten"; };
+  upd();
+  $("#ghTokenSave").addEventListener("click", async () => {
+    const v = $("#ghToken").value.trim();
+    try { v ? localStorage.setItem("fp_gh_token", v) : localStorage.removeItem("fp_gh_token"); } catch(e){}
+    $("#ghToken").value = ""; upd(); updateGhButton();
+    if (!v) return;
+    const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}`, {headers: {Authorization: "Bearer " + v}}).catch(() => null);
+    if (r && r.ok){ setStatus("GitHub-Schlüssel gespeichert ✓ Fehlende Links werden ab jetzt automatisch geholt."); autoRequest(); }
+    else setStatus("Der Schlüssel funktioniert nicht. Prüf, ob er für ordner-scanner freigegeben ist.", true);
+  });
+}
 $("#memExport").addEventListener("click", () => {
   let m = {}; try { m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"); } catch(e){}
   const blob = new Blob([JSON.stringify(m, null, 1)], {type: "application/json"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "links.json"; a.click();
   setStatus(`${Object.keys(m).length} gemerkte Links als links.json gespeichert. Lege die Datei neben index.html auf GitHub, dann kennt jedes Gerät diese Links.`);
 });
+
+/* ---------- missing links via GitHub (Action in the repo fills links.json) ---------- */
+
+function mergeLinks(obj){
+  let m = {}; try { m = JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"); } catch(e){}
+  let added = 0; for (const [k, v] of Object.entries(obj || {})){ const key = k.toLowerCase(); if (!m[key]){ m[key] = v; added++; } }
+  try { localStorage.setItem("fp_cm_memory", JSON.stringify(m)); } catch(e){}
+  return added;
+}
+function applyMemory(){
+  let n = 0;
+  allCards.forEach(it => { if (!it.data.cmFound){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
+  if (n) renderExport();
+  return n;
+}
+function missingCards(){ return allCards.filter(it => !it.data.cmFound && it.data.number && cardKey(it.data)); }
+function updateGhButton(){
+  const b = $("#ghBtn"); if (!b) return;
+  const n = new Set(missingCards().map(it => cardKey(it.data))).size;
+  b.classList.toggle("hidden", !GH || !n || !!ghToken());
+  b.textContent = `Fehlende Cardmarket-Links holen (${n})`;
+}
+let ghPoll = null;
+async function pollLinks(keys, until){
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/links.json?t=${Date.now()}`, {headers: {Accept: "application/vnd.github.raw+json"}, cache: "no-store"});
+    if (r.ok){ mergeLinks(await r.json()); applyMemory(); }
+  } catch(e){}
+  const left = keys.filter(k => !memGetKey(k));
+  updateGhButton();
+  if (!left.length){ ghPending.clear(); setStatus("Alle Cardmarket-Links sind da ✓"); setProgress(1); return; }
+  if (Date.now() > until){ ghPending.clear(); setStatus(`${left.length} Link(s) nicht gefunden. Bei diesen Karten Angaben prüfen oder „Cardmarket-Link holen“ nutzen.`, true); return; }
+  setStatus(`GitHub sucht die Links … noch ${left.length} offen`);
+  ghPoll = setTimeout(() => pollLinks(keys, until), 15000);
+}
+function memGetKey(k){ try { return (JSON.parse(localStorage.getItem("fp_cm_memory") || "{}"))[k] || ""; } catch(e){ return ""; } }
+function ghToken(){ try { return localStorage.getItem("fp_gh_token") || ""; } catch(e){ return ""; } }
+let ghPending = new Set();
+async function autoRequest(){
+  if (!GH || !ghToken()) return false;
+  const seen = new Set(), lines = [];
+  for (const it of missingCards()){
+    const k = cardKey(it.data); if (seen.has(k) || ghPending.has(k)) continue; seen.add(k);
+    lines.push(k + "\t" + searchQuery(it.data));
+  }
+  if (!lines.length) return true;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/issues`, {
+      method: "POST",
+      headers: {Authorization: "Bearer " + ghToken(), Accept: "application/vnd.github+json", "Content-Type": "application/json"},
+      body: JSON.stringify({title: "Cardmarket-Links " + new Date().toLocaleString("de-DE"), body: "Automatisch vom Ordner-Scanner.\n\n" + lines.join("\n")})
+    });
+    if (!r.ok){ setStatus(r.status === 401 || r.status === 403 ? "GitHub-Schlüssel ungültig oder ohne Issue-Recht. Bitte neu einrichten." : "GitHub hat die Anfrage abgelehnt (" + r.status + ").", true); return false; }
+  } catch(e){ setStatus("GitHub nicht erreichbar.", true); return false; }
+  seen.forEach(k => ghPending.add(k));
+  clearTimeout(ghPoll);
+  setStatus(`GitHub sucht ${seen.size} fehlende Link(s) … dauert etwa eine Minute.`);
+  ghPoll = setTimeout(() => pollLinks([...ghPending], Date.now() + 5 * 60000), 30000);
+  return true;
+}
+function requestViaGitHub(){
+  const seen = new Set(), lines = [];
+  for (const it of missingCards()){
+    const k = cardKey(it.data); if (seen.has(k)) continue; seen.add(k);
+    lines.push(k + "\t" + searchQuery(it.data));
+  }
+  if (!lines.length) return;
+  const body = "Vom Ordner-Scanner erstellt. Einfach auf „Submit new issue“ tippen – der Rest passiert automatisch.\n\n" + lines.join("\n");
+  const title = "Cardmarket-Links " + new Date().toLocaleString("de-DE");
+  window.open(`https://github.com/${GH.owner}/${GH.repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+  clearTimeout(ghPoll);
+  setStatus("Auf GitHub „Submit new issue“ tippen und hierher zurückkommen. Die Links erscheinen nach etwa einer Minute.");
+  setProgress(null);
+  ghPoll = setTimeout(() => pollLinks([...seen], Date.now() + 5 * 60000), 20000);
+}
 
 /* ---------- setup ---------- */
 $("#cseId").value = cseId();
