@@ -22,6 +22,9 @@ assert.equal(run('matchLatinName("Bisaknosp", "de").printed'), 'Bisaknosp');
 assert.equal(run('matchAsianName("エリカのフシギダネ").local'), 'エリカのフシギダネ');
 assert.equal(run('matchAsianName("ヘラクロス").en'), 'Heracross');
 assert.equal(run('matchAsianName("エンテイ").en'), 'Entei');
+assert.equal(run('matchLatinName("EnteiV4", "de").printed'), 'Entei V');
+assert.equal(run('matchAsianName("ェンティ").en'), 'Entei');
+assert.equal(run('matchAsianName("ニャース").local'), 'ニャース');
 console.log('Recognition regression checks passed');
 vm.runInContext(section('async function refreshLookup(', '/* ---------- first Cardmarket'), ctx);
 Object.assign(ctx, {
@@ -41,5 +44,15 @@ Object.assign(ctx, {
  assert.equal(item.data.setSure,false);
  item.data.observedName='';item.data.preferredSetId='b';await ctx.refreshLookup(item);
  assert.equal(item.data.setId,'b');
- console.log('Ambiguous-set and name-conflict checks passed');
+ item.data.observedName='Entei GX'; await ctx.refreshLookup(item);
+ assert.equal(item.data.setSure,false);
+ vm.runInContext(section('async function fixJaByName(', '/* ---------- pipeline'), ctx);
+ ctx.fetch=async()=>({ok:true,json:async()=>[{id:'ADV5-009',localId:'009'}]});
+ ctx.getSets=async()=>[{id:'ADV5',cardCount:{official:83}}];
+ assert.equal(await ctx.fixJaByName('ヘラクロス','',[]),null);
+ const single=await ctx.fixJaByName('ヘラクロス','009/083',['009/083']);
+ assert.equal(single.number,'009/083'); assert.equal(single.sure,false);
+ const repeated=await ctx.fixJaByName('ヘラクロス','009/083',['009/083','009/083']);
+ assert.equal(repeated.sure,true);
+ console.log('Ambiguous-set, name-conflict and Japanese-number checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
