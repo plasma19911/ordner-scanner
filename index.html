@@ -322,6 +322,7 @@ function getKnownTotals(){
 }
 function cleanPart(s){
   s = s.replace(/\s/g, "").toUpperCase().replace(/^(5V|V)(?=\d)/, "SV").replace(/^6G/, "GG").replace(/^7G/, "TG");
+  s = s.replace(/^[OI]+(?=[0-9OI|]*$)/, x => x.replace(/O/g, "0").replace(/I/g, "1"));
   const m = s.match(/^([A-Z]*)(.*)$/);
   return m[1] + m[2].replace(/O/g, "0").replace(/[IL|]/g, "1");
 }
@@ -370,12 +371,18 @@ async function ocrLines(img, params, w){
 }
 function guessLang(text){
   const t = text.toLowerCase();
-  const de = (t.match(/schw[aä]che|resistenz|r[uü]ckzug|m[uü]nze|kopf|schaden|basis|entwickelt|aktive|gegner|deine?n?|dieses?|wirf|angriff|pokémon-/g) || []).length;
-  const en = (t.match(/weakness|resistance|retreat|coin|heads|damage|basic|stage|evolves|active|opponent|your|this|attack|flip|because|does/g) || []).length;
+  // Count whole words: "this" inside an unrelated word is not language evidence.
+  const count = re => new Set(t.match(re) || []).size;
+  const de = count(/\b(?:schw[aä]che|resistenz|r[uü]ckzug|m[uü]nze|schaden|basis|entwickelt|gegner|dein(?:e|en)?|dies(?:e|es)|wirf|angriff)\b/g);
+  const en = count(/\b(?:weakness|resistance|retreat|coin|heads|damage|basic|stage|evolves|opponent|your|this|attack|flip|because|does)\b/g);
+  const marker = t.match(/\b(?:deu|ger|eng|jpn)\b/);
+  if (marker) return {lang: {deu:"de", ger:"de", eng:"en", jpn:"ja"}[marker[0]], sure: true, hits: 4};
   const hits = Math.max(de, en);
-  if (de > en && de >= 2) return {lang: "de", sure: true, hits};
-  if (en > de && en >= 2) return {lang: "en", sure: true, hits};
-  return {lang: "ja", sure: false, hits};
+  if (de > en) return {lang: "de", sure: de >= 2, hits};
+  if (en > de) return {lang: "en", sure: en >= 2, hits};
+  if (/[\u3040-\u30FF]/.test(t)) return {lang: "ja", sure: true, hits};
+  if (/[\u3400-\u9FFF]/.test(t)) return {lang: "zh", sure: false, hits};
+  return {lang: "de", sure: false, hits};
 }
 
 /* ---------- Japanese / Chinese names ---------- */
@@ -473,6 +480,7 @@ async function readAsianName(card){
 const LATIN_REGIONS = [[/^galarian\s+/i, "Galarian ", "Galar-"], [/^galar-\s*/i, "Galarian ", "Galar-"], [/^alolan\s+/i, "Alolan ", "Alola-"], [/^alola-\s*/i, "Alolan ", "Alola-"],
   [/^hisuian\s+/i, "Hisuian ", "Hisui-"], [/^hisui-\s*/i, "Hisuian ", "Hisui-"], [/^paldean\s+/i, "Paldean ", "Paldea-"], [/^paldea-\s*/i, "Paldean ", "Paldea-"]];
 function matchLatinName(text, lang){
+  text = text.replace(/([a-zäöüß])(VMAX|VSTAR|GX|EX|V)(?=\s|$)/g, "$1 $2");
   const words = text.replace(/[^A-Za-zÄÖÜäöüßé\-\s]/g, " ").split(/\s+/).filter(Boolean);
   let best = null;
   for (let i = 0; i < words.length; i++){
@@ -482,11 +490,11 @@ function matchLatinName(text, lang){
       if (chunk.length < 3) continue;
       const low = chunk.toLowerCase();
       for (const row of NAMES){
-        for (const [k, pre] of [[0, en], [4, de]]){
+        for (const [k, pre] of (lang === "de" ? [[4, de], [0, en]] : [[0, en], [4, de]])){
           const nm = row[k]; if (!nm) continue;
           const d = lev(low, nm.toLowerCase());
           const limit = nm.length <= 4 ? 0 : nm.length <= 7 ? 1 : 2;
-          if (d <= limit && (!best || d < best.d)) best = {d, en: (en || "") + row[0], de: (de || "") + (row[4] || row[0]), printed: k === 0 ? (en || "") + row[0] : (de || "") + row[4]};
+          if (d <= limit && (!best || d < best.d)) best = {d, en: (en || "") + row[0], de: (de || "") + (row[4] || row[0]), printed: lang === "de" ? (de || "") + (row[4] || row[0]) : (en || "") + row[0]};
         }
       }
     }
@@ -583,7 +591,7 @@ async function lookupIn(lang, number){
   const [n, d] = number.split("/"); if (!n || !d) return [];
   const prefix = ((n.match(/^[A-Z]+/i) || [""])[0]).toLowerCase(), official = parseInt(d.replace(/\D/g, ""), 10);
   const gallery = /(sv|gg|tg)$/i;
-  const sets = (await getSets(lang)).filter(s => s.cardCount && s.cardCount.official === official && (prefix && prefix !== "h" ? s.id.toLowerCase().endsWith(prefix) : !gallery.test(s.id))).slice(0, 8);
+  const sets = (await getSets(lang)).filter(s => s.cardCount && s.cardCount.official === official && (prefix && prefix !== "h" ? s.id.toLowerCase().endsWith(prefix) : !gallery.test(s.id)));
   const localId = prefix ? n.toUpperCase() : String(parseInt(n, 10));
   const enSets = lang === "en" ? null : await getSets("en");
   const get = (l, id) => fetch(`https://api.tcgdex.net/v2/${l}/sets/${encodeURIComponent(id)}/${encodeURIComponent(localId)}`).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -594,7 +602,7 @@ async function lookupIn(lang, number){
       const e = await get("en", st.id); if (e && e.name) enName = e.name;
       const es = (enSets || []).find(x => x.id === st.id); if (es) enSet = es.name;
     }
-    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id};
+    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id, image: c.image || ""};
   }));
   return hits.filter(Boolean);
 }
@@ -609,8 +617,8 @@ async function lookupJa(number, jaName, rawText){
   const res = await Promise.all(sets.map(async st => { const c = await getCard(st.id); return {id: st.id, name: c && c.name}; }));
   const clean = x => (x || "").replace(/\s/g, "");
   if (jaName){
-    const hit = res.find(r => r.name && (clean(r.name) === clean(jaName) || lev(clean(r.name), clean(jaName)) <= 1));
-    if (hit) return {code: hit.id.toLowerCase(), sure: true};
+    const hits = res.filter(r => r.name && (clean(r.name) === clean(jaName) || lev(clean(r.name), clean(jaName)) <= 1));
+    if (hits.length === 1) return {code: hits[0].id.toLowerCase(), sure: true};
     const unknown = res.filter(r => !r.name);
     if (unknown.length === 1) return {code: unknown[0].id.toLowerCase(), sure: false};
   }
@@ -629,12 +637,15 @@ async function lookupJa(number, jaName, rawText){
 const VINTAGE_JA = {PMCG1: "Base Set", PMCG2: "Jungle", PMCG3: "Fossil", PMCG4: "Team Rocket", PMCG5: "Leaders' Stadium", PMCG6: "Challenge from the Darkness",
   neo1: "Neo Genesis", neo2: "Neo Discovery", neo3: "Neo Revelation", neo4: "Neo Destiny"};
 // old Japanese cards only show "No. 001" (Pokédex number): find the set by name among the vintage sets
-async function vintageJa(jaName){
+async function vintageJa(jaName, card){
   if (!jaName) return null;
   const list = await fetch(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(jaName)}`).then(r => r.ok ? r.json() : []).catch(() => []);
   const hits = list.map(c => c.id.slice(0, c.id.lastIndexOf("-"))).filter(id => VINTAGE_JA[id]);
   const uniq = [...new Set(hits)];
-  return uniq.length === 1 ? VINTAGE_JA[uniq[0]] : null;
+  if (uniq.length === 1) return VINTAGE_JA[uniq[0]];
+  const prints = list.filter(c => VINTAGE_JA[c.id.slice(0, c.id.lastIndexOf("-"))]).map(c => ({...c, setId: c.id.slice(0, c.id.lastIndexOf("-"))}));
+  const chosen = card && prints.length ? await visualPick(card, prints) : null;
+  return chosen ? VINTAGE_JA[chosen.setId] : null;
 }
 // Japanese cards with a readable name but a shaky number: look the name up and pick the print whose number fits the OCR votes
 async function fixJaByName(jaName, number, votes){
@@ -656,7 +667,7 @@ async function fixJaByName(jaName, number, votes){
     for (const v of nums){ let k = 0; while (k < Math.min(v.length, id.length) && v[v.length - 1 - k] === id[id.length - 1 - k]) k++; sc = Math.max(sc, k === id.length && v.length === id.length ? 10 : k); }
     if (!best || sc > best.sc) best = {c, sc};
   }
-  if (best.sc < 2 && cands.length > 1) return null;
+  if (cands.length > 1 && (best.sc < 10 || cands.filter(c => nums.some(v => parseInt(v, 10) === parseInt(c.localId, 10))).length !== 1)) return null;
   const pad = String(parseInt(best.c.localId, 10)).padStart(3, "0");
   return {number: `${pad}/${String(best.c.official).padStart(3, "0")}`, code: best.c.setId.toLowerCase(), sure: best.sc >= 10};
 }
@@ -794,12 +805,12 @@ async function readSingle(img, list){
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((x, y) => y[1] - x[1])[0];
   best.num = top && plausible(top[0]) ? top[0] : "";
-  best.numSure = !!(top && plausible(top[0]) && score[top[0]] >= 4);
+  best.numSure = !!(top && plausible(top[0]) && best.votes.filter(v => v === top[0]).length >= 2);
   const dex = lowText.match(/N[oO0][.,]?\s?(\d{3})\b/);
   const topL = await ocrLines(stripOf(c, 0, 0.45, 0, 1, 1800, true));
   const lg = guessLang(topL.text + " " + lowText);
   const opts = {dexNo: dex && !best.num ? dex[1] : "", strip: stripOf(c, 0.75, 1, 0, 1, 900, true)};
-  if (lg.sure){
+  if (["de", "en"].includes(lg.lang)){
     // the card name is the biggest text line at the top
     opts.latin = null;
     for (const l of [...topL.lines].sort((x, y) => y.h - x.h)){ const m = matchLatinName(l.text, lg.lang); if (m && (!opts.latin || m.d < opts.latin.d)) opts.latin = m; }
@@ -846,7 +857,9 @@ async function readCard(card, list, pos){
     const num = votes.find(plausible) || votes[0] || null;
     const cand = {c, votes, conf};
     tried.push(cand);
-    if (plausible(num)){ best = cand; break; }
+    const reliable = votes.filter(plausible).length;
+    cand.reliable = reliable;
+    if (reliable >= 2 && (!best || reliable > best.reliable)) best = cand;
   }
   // ... and if that fails, use the card text (German/English words only read the right way up)
   if (!best){
@@ -876,7 +889,7 @@ async function readCard(card, list, pos){
   const smallTotal = top && parseInt(top[0].split("/")[1].replace(/\D/g, ""), 10) < 40;
   const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6);
   best.num = okTop ? top[0] : "";
-  best.numSure = !!(okTop && (score[top[0]] >= 5 || best.votes.length === 1));
+  best.numSure = !!(okTop && best.votes.filter(v => v === top[0]).length >= 2);
   const {c} = best;
   const lg = best.lg || guessLang((await ocr(stripOf(c, 0.5, 0.93, 0, 1, 1400, true), {tessedit_pageseg_mode: "3"})).text);
 
@@ -889,10 +902,18 @@ async function readCard(card, list, pos){
 
 async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   let picks = [], latin = null;
-  if (lg.sure && !plausible(best.num)){
+  if (["de", "en"].includes(lg.lang)){
+    const readings = [];
+    if (opts.latin) readings.push(opts.latin);
+    for (const raw of [true, false]){
+      const t = await ocr(stripOf(c, 0.015, 0.15, 0.04, 0.88, 1200, raw), {tessedit_pageseg_mode: "7"});
+      const m = matchLatinName(t.text, lg.lang); if (m) readings.push(m);
+    }
+    latin = readings.sort((a, b) => a.d - b.d)[0] || null;
+  }
+  if (latin && !plausible(best.num)){
     // no readable number: read the card name instead and look the card up by name
-    if (opts.latin !== undefined) latin = opts.latin;
-    else { const t = await ocr(stripOf(c, 0.025, 0.11, 0.08, 0.80, 1200, true), {tessedit_pageseg_mode: "7"}); latin = matchLatinName(t.text, lg.lang); }
+
     if (latin){
       let cands = await candidatesByName(lg.lang, latin.printed);
       if (!/^(Galar|Alola|Hisui|Paldea)/i.test(latin.printed)){
@@ -901,23 +922,23 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
         cands = cands.concat(...more);
       }
       const nums = best.votes.map(v => v.split("/")[0].replace(/\D/g, ""));
-      const byVote = cands.filter(cd => nums.some(v => v && String(parseInt(cd.localId.replace(/\D/g, ""), 10)).endsWith(v.slice(-2))));
+      const byVote = cands.filter(cd => nums.some(v => v && parseInt(cd.localId.replace(/\D/g, ""), 10) === parseInt(v, 10)));
       let chosen = byVote.length === 1 ? byVote[0] : cands.length === 1 ? cands[0] : null;
       if (!chosen && cands.length){
         const ranked = await rankVisually(c, cands);
         if (ranked.sure) chosen = ranked.list[0];
         else picks = ranked.list.slice(0, 8);
       }
-      if (chosen){ best.num = numberOf(chosen); best.numSure = false; }
+      if (chosen){ best.num = numberOf(chosen); best.numSure = false; opts.setId = chosen.setId; }
     }
   }
   let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure, vintageSet = null;
-  if (!lg.sure){
+  if (["ja", "zh"].includes(lg.lang) || (!lg.sure && !latin)){
     const rn = opts.asian || await readAsianName(c);
     asian = rn.match;
     if (/[\u3040-\u30FF]/.test(rn.text) || (asian && asian.script === "ja")){ lang = "ja"; langSure = !!asian; }
     else if (asian && asian.script === "zh"){ lang = "zh"; langSure = true; }
-    if (lang === "ja" && !plausible(best.num) && asian && opts.dexNo) vintageSet = await vintageJa(asian.local);
+    if (lang === "ja" && !plausible(best.num) && asian && opts.dexNo) vintageSet = await vintageJa(asian.local, c);
     if (lang === "ja" && !vintageSet){
       jaSet = await lookupJa(best.num, asian && asian.local, asian ? "" : rn.text);
       if (asian && !(jaSet && jaSet.sure)){
@@ -926,7 +947,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
       }
     }
   }
-  const data = {picks, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
+  const data = {picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
     code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
@@ -938,8 +959,24 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
 async function refreshLookup(item){
   const d = item.data;
   d.options = await lookup(d.lang, d.number);
-  if (d.options.length && !d.nameTouched){ const o = d.options[0]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; if (!d.codeSure) d.code = ""; }
-  if (!d.options.length) d.setId = "";
+  if (!d.nameTouched){
+    const normalize = x => (x || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    let matches = d.options;
+    if (d.observedName){
+      const wanted = normalize(d.observedName);
+      const named = matches.filter(o => [o.name, o.enName].some(n => normalize(n) === wanted));
+      // A conflicting OCR name is evidence against accepting a number-only hit.
+      matches = named;
+    }
+    let chosen = matches.find(o => o.setId === d.preferredSetId) || (matches.length === 1 ? matches[0] : null);
+    if (!chosen && matches.length > 1 && item.thumb){
+      const image = await loadImg(item.thumb);
+      if (image) chosen = await visualPick(image, matches);
+    }
+    d.setSure = !!chosen;
+    d.set = ""; d.enSet = ""; d.setId = "";
+    if (chosen) Object.assign(d, {name: chosen.name, set: chosen.set, enName: chosen.enName, enSet: chosen.enSet, setId: chosen.setId});
+  }
   render(item); renderExport();
   findCardmarket(item);
 }
@@ -971,13 +1008,17 @@ function searchQuery(d){
 }
 async function findCardmarket(item){
   const d = item.data;
+  d.cmFound = ""; d.cmPrices = "";
+  if (["de", "en"].includes(d.lang) && !d.setSure){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
   d.cmPrices = pricesLink(d);
   if (d.cmPrices){ d.cmState = "prices"; render(item); renderExport(); return; }   // exact product page, no search needed
   if (!cseId() || !(d.number || d.vintageSet)) return;
   d.cmState = "searching"; render(item);
-  const results = await cseSearch(searchQuery(d));
+  const query = searchQuery(d), key = cardKey(d);
+  const results = await cseSearch(query);
+  if (query !== searchQuery(d) || key !== cardKey(d)) return;
   const hit = (results || []).map(r => r.unescapedUrl || r.url || "").find(u => /cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\//i.test(u));
   d.cmFound = hit ? hit.replace(/cardmarket\.com\/[a-z]{2}\//i, "cardmarket.com/de/").split("?")[0] : "";
   if (d.cmFound) memSet(d, d.cmFound);
@@ -1094,21 +1135,23 @@ function render(item){
   const wasOpen = item.el.querySelector("details.fix")?.open;
   if (wasOpen !== undefined) item.open = wasOpen;
   const langOpts = Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === d.lang ? " selected" : ""}>${v}</option>`).join("");
-  const setOpts = d.options.length > 1
-    ? `<label>Treffer<select data-f="pick">${d.options.map((o, i) => `<option value="${i}"${o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
+  const setOpts = d.options.length > 1 || (d.options.length && !d.setSure)
+    ? `<label>Treffer<select data-f="pick"><option value=""${!d.setSure ? " selected" : ""}>Bitte Karte / Set auswählen</option>${d.options.map((o, i) => `<option value="${i}"${d.setSure && o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
   const flags = [];
   if (!d.number && d.vintageSet) {}
   else if (!d.number && d.dexNo) flags.push("Alte Karte ohne Set-Nummer – Set unbekannt");
   else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
-  if (!d.langSure) flags.push("Sprache geraten");
+  if (!d.langSure) flags.push("Sprache unsicher – bitte prüfen");
+  if (["de", "en"].includes(d.lang) && d.number && !d.setSure) flags.push("Set nicht eindeutig – Treffer prüfen");
   if ((d.lang === "ja" || d.lang === "zh") && !d.code) flags.push("Set-Kürzel fehlt");
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
   else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(d.cmPrices)}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Filter für Near Mint, Sprache und Deutschland auf Cardmarket einstellen.</div>`;
   else if (d.cmState === "searching") cm = `<div class="cm wait">Suche Cardmarket-Link …</div>`;
+  else if (d.cmState === "ambiguous") cm = `<div class="cm miss">Für den richtigen Link zuerst Karte / Set bestätigen.</div>`;
   else if (d.cmState === "none") cm = `<div class="cm miss">Kein Cardmarket-Treffer</div>`;
   else if (d.cmState === "error") cm = `<div class="cm miss">Cardmarket-Helfer nicht erreichbar</div>`;
   else if (!cseId()) cm = awaiting === item
@@ -1147,7 +1190,7 @@ function render(item){
   item.el.querySelector("[data-prices]")?.addEventListener("click", () => { awaiting = item; });
   item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", async () => {
-    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.nameTouched = false;
+    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
   item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
@@ -1164,13 +1207,13 @@ function render(item){
   });
   item.el.querySelectorAll("[data-f]").forEach(el => el.addEventListener("change", async () => {
     const f = el.dataset.f;
-    if (f === "pick"){ const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; render(item); renderExport(); findCardmarket(item); return; }
+    if (f === "pick"){ if (el.value === "") return; d.setSure = true; const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; render(item); renderExport(); findCardmarket(item); return; }
     d[f] = el.value.trim();
     if (f === "name"){ d.nameTouched = true; d.enName = d.name; }
     if (f === "code") d.codeSure = true;
     if (f === "number"){ d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
     if (f === "lang") d.langSure = true;
-    if ((f === "number" || f === "lang") && (d.lang === "de" || d.lang === "en")){ d.nameTouched = false; await refreshLookup(item); }
+    if ((f === "number" || f === "lang") && (d.lang === "de" || d.lang === "en")){ d.nameTouched = false; d.observedName = ""; d.preferredSetId = ""; await refreshLookup(item); }
     else if (f === "number" && d.lang === "ja"){ const js = await lookupJa(d.number, d.local); if (js.code){ d.code = js.code; d.codeSure = js.sure; } render(item); renderExport(); findCardmarket(item); }
     else { render(item); renderExport(); if (["name", "code", "number", "lang"].includes(f)) findCardmarket(item); }
   }));
