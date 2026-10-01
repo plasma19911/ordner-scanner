@@ -284,7 +284,7 @@ function detectRects(cv, small){
     for (let i=0;i<cs.size();i++){
       const c=cs.get(i), r=cv.minAreaRect(c), w=r.size.width, h=r.size.height;
       const ar=Math.max(w,h)/Math.max(1,Math.min(w,h)), a=w*h;
-      if(a>0.015*A && a<0.95*A && ar>1.25 && ar<1.6 &&
+      if(a>0.015*A && a<0.8*A && ar>1.25 && ar<1.6 &&
         Math.abs(cv.contourArea(c))/a>0.65)
         found.push({cx:r.center.x,cy:r.center.y,w,h,angle:r.angle});
       c.delete();
@@ -1009,26 +1009,57 @@ async function referenceMetadata(ref){
   const st = matching[0];
   return {...ref,setId:st.id,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:""};
 }
+function japaneseFor(english){
+  const wanted=referenceNormalize(referenceFamily(english));
+  const row=NAMES.find(r=>referenceNormalize(r[0])===wanted);
+  return row ? row[1] : "";
+}
+const JAPANESE_REFERENCE_CACHE = new Map();
+async function japaneseReferenceCandidates(local){
+  if(!local) return [];
+  if(!JAPANESE_REFERENCE_CACHE.has(local)) JAPANESE_REFERENCE_CACHE.set(local,(async()=>{
+    const list=await fetch(`https://api.tcgdex.net/v2/ja/cards?name=like:${encodeURIComponent(local)}`, {signal:AbortSignal.timeout(12000)}).then(r=>r.ok?r.json():[]);
+    // Never select a winner from a silently truncated large result set.
+    if(!Array.isArray(list) || list.length>120) return [];
+    const sets=await getSets("ja"), result=[];let next=0;
+    const task=async()=>{while(next<list.length){const row=list[next++];
+      if(!row.id || !row.name?.includes(local)) continue;
+      try {
+        const card=await fetch(`https://api.tcgdex.net/v2/ja/cards/${encodeURIComponent(row.id)}`, {signal:AbortSignal.timeout(12000)}).then(r=>r.ok?r.json():null);
+        const st=sets.find(s=>s.id===card?.set?.id);
+        if(!card?.image || !st?.cardCount?.official || /\/tcgp\//.test(card.image)) continue;
+        const en=englishFor(card.name);
+        result.push({name:en || card.name,local:card.name,lang:"ja",set:st.name,setId:st.id,
+          number:numberOf({localId:card.localId,official:st.cardCount.official}),
+          code:st.id.toLowerCase(),vintageSet:"",image:card.image+"/high.webp",source:card.image+"/high.webp",directImage:true});
+      } catch {}
+    }};
+    await Promise.all(Array.from({length:Math.min(4,list.length)},task));return result;
+  })().catch(()=>{JAPANESE_REFERENCE_CACHE.delete(local);return [];}));
+  return JAPANESE_REFERENCE_CACHE.get(local);
+}
 async function applyReferenceMatch(item, photo, force=false){
   const d = item.data;
-  if (!globalThis.CardMatcher || !window.cv?.ORB || !["de","en","ja"].includes(d.lang)) return;
+  if (!globalThis.CardMatcher || !window.cv?.ORB || (!["de","en","ja"].includes(d.lang) && d.langSure)) return;
   if (!force && d.setSure && d.langSure) return;
   const revision=(item.referenceRevision || 0)+1;item.referenceRevision=revision;
   const identity=()=>[d.name,d.number,d.lang,d.code].join('|'),requestedIdentity=identity();
-  const printed = d.lang === "ja" ? d.enName : d.observedName || d.name;
+  const printed = ["ja","zh"].includes(d.lang) ? d.enName : d.observedName || d.name;
   const family = referenceFamily(printed), unknown = !family;
   if (family){
     const at = RECENT_REFERENCE_NAMES.indexOf(family); if(at >= 0) RECENT_REFERENCE_NAMES.splice(at,1);
     RECENT_REFERENCE_NAMES.push(family); if(RECENT_REFERENCE_NAMES.length > 8) RECENT_REFERENCE_NAMES.shift();
   }
-  const queries = family ? [family] : RECENT_REFERENCE_NAMES.slice(-4).reverse();
-  if (!queries.length) return;
+  const queries = family ? [family] : [];
   try {
     let refs = [];
     for (const q of queries){
       const found = await referenceCards(d.lang,q), wanted = referenceNormalize(q);
       refs.push(...found.filter(r => referenceNormalize(referenceFamily(r.name)) === wanted));
     }
+    // No readable title: compare the cached catalogue directly, even on the first photo.
+    if (!family) refs.push(...(await staticReferences()).filter(r => r.cachedImage &&
+      (!d.langSure || r.lang === d.lang)).map(r => ({...r,image:r.cachedImage,directImage:true})));
     refs = [...new Map(refs.map(r => [r.source,r])).values()];
     const candidates = (await Promise.all(refs.map(referenceMetadata))).filter(Boolean);
     // The supplementary site omits some prints. Keep the existing open catalogue as a fallback.
@@ -1046,9 +1077,18 @@ async function applyReferenceMatch(item, photo, force=false){
         candidates.push({name:c.name,lang:d.lang,set:st.name,setId,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:"",image:c.image+"/high.webp",source:c.image+"/high.webp",directImage:true});
       }
     }
-    if (!candidates.length) return;
-    const ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+    if (family && (d.lang === "ja" || !d.langSure))
+      candidates.push(...await japaneseReferenceCandidates(d.local || japaneseFor(family)));
+    let ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
     if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
+    if (!ranked.sure && family){
+      // A bad OCR title must not prevent a strong image match against another Pokémon.
+      const fallback=(await Promise.all((await staticReferences()).filter(r=>r.cachedImage &&
+        (!d.langSure || r.lang===d.lang)).map(r=>referenceMetadata({...r,image:r.cachedImage,directImage:true})))).filter(Boolean);
+      const combined=[...new Map([...candidates,...fallback].map(r=>[r.source,r])).values()];
+      ranked=await CardMatcher.rank(photo,combined,r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
+      if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
+    }
     if (!ranked.sure){
       d.referenceState = "uncertain";
       return;
@@ -1064,8 +1104,8 @@ async function applyReferenceMatch(item, photo, force=false){
     if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     Object.assign(d,{name:r.name,enName,local:r.local || d.local,
       observedName:r.lang === "ja" ? "" : r.name,number:r.number,set:r.set,enSet,setId:r.setId,
-      preferredSetId:r.setId,code:r.code,codeSure:!!r.code,lang:r.lang,langSure:d.langSure,setSure:true,
-      numSure:false,nameTouched:true,vintageSet:r.vintageSet,referenceSource:r.source,referenceState:"matched"});
+      preferredSetId:r.setId,code:r.code,codeSure:!!r.code,lang:r.lang,langSure:r.lang === "ja" || (d.langSure && d.lang === r.lang),setSure:true,
+      numSure:!!r.number,nameTouched:true,vintageSet:r.vintageSet,referenceSource:r.source,referenceState:"matched"});
   } catch {d.referenceState = "unavailable";}
 }
 
@@ -1109,7 +1149,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
     }
   }
   let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure, vintageSet = null;
-  if (opts.asian?.match || ["ja", "zh"].includes(lg.lang) || !latin){
+  if (opts.asian?.match || ["ja", "zh"].includes(lg.lang) || !latin || !lg.sure || latin.d > 0){
     const rn = opts.asian || await readAsianName(c);
     asian = rn.match;
     if (asian) latin = null;
@@ -1553,7 +1593,7 @@ function requestViaGitHub(){
 }
 
 /* ---------- setup ---------- */
-staticReferences().then(cards=>{const el=$("#referenceStatus");if(el)el.textContent=cards.length?`${cards.filter(c=>c.cachedImage).length} Referenzbilder verfügbar. Weitere deutsche und englische Karten: TCGdex-Katalog.`:location.hostname.endsWith(".github.io")?"Referenzsammlung noch nicht verfügbar. Text- und TCGdex-Erkennung bleiben verfügbar.":"Live-Referenzsuche auf diesem Server verfügbar.";});
+staticReferences().then(cards=>{const el=$("#referenceStatus");if(el)el.textContent=cards.length?`${cards.filter(c=>c.cachedImage).length} Referenzbilder verfügbar. Weitere deutsche, englische und japanische Karten: TCGdex-Katalog.`:location.hostname.endsWith(".github.io")?"Referenzsammlung noch nicht verfügbar. Text- und TCGdex-Erkennung bleiben verfügbar.":"Live-Referenzsuche auf diesem Server verfügbar.";});
 $("#cseId").value = cseId();
 function updateSetupSummary(){
   if (LOCAL) return;
