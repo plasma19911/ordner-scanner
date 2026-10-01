@@ -1,0 +1,30 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8');
+const section=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b,html.indexOf(a)));
+const ctx=vm.createContext({console});
+vm.runInContext(section('const NUM_RE','async function ocr(')+section('function referenceCompatible','async function referenceMetadata')+section('function numberOf','/* ---------- card lookup'),ctx);
+for(const [raw,expected] of [['0202/07 CM3C','0202/07'],['0304/09','0304/09'],['SWSH244','SWSH244'],['SVP 192','SVP192'],['029/PCG-P','029/PCG-P'],['００９/０８３','009/083'],['GG01/GG70','GG01/GG70'],['12345/07',null],['13/71019',null],['No. 001',null]]) assert.equal(ctx.findNumber(raw),expected,raw);
+assert.equal(ctx.specialNumber(null),false);
+assert.equal(ctx.specialNumber('0208/07'),false);
+assert.equal(ctx.specialNumber('0202/07'),true);
+assert.equal(ctx.findChineseCode('0202/07 CM3C'),'CM3C');
+assert.equal(ctx.findChineseCode('050/173 sm12a'),'');
+assert.equal(ctx.numberOf({localId:'SWSH244',official:307}),'SWSH244');
+const photo={lang:'ja',langSure:true,number:'013/070',numSure:true};
+assert.equal(ctx.referenceCompatible(photo,{lang:'ja',number:'014/100'}),false,'same illustration, different print');
+assert.equal(ctx.referenceCompatible(photo,{lang:'ja',number:'13/70'}),true);
+assert.equal(ctx.referenceCompatible(photo,{lang:'en',number:'13/70'}),false);
+assert.equal(ctx.referenceCompatible(photo,{lang:'ja',number:''}),false);
+assert.equal(ctx.referenceCompatible({...photo,code:'s1a',codeSure:true},{lang:'ja',number:'13/70',code:'s11'}),false);
+assert.equal(ctx.referenceCompatible({...photo,numSure:false},{lang:'ja',number:'14/100'}),true,'uncertain OCR remains correctable');
+vm.runInContext(section('async function lookupIn','// Japanese cards:'),ctx);
+let requested='';ctx.fetch=async url=>{requested=url;return {ok:true,json:async()=>({name:'Scorbunny',set:{id:'swshp',name:'SWSH promos'}})}};
+(async()=>{
+ const hits=await ctx.lookupIn('en','SWSH244');assert.equal(hits[0].name,'Scorbunny');assert.match(requested,/cards\/swshp-SWSH244$/);
+ // Equally supported fuzzy Japanese titles must remain unresolved.
+ let reads=0;ctx.getAsianWorker=async()=>({setParameters:async()=>{},recognize:async()=>({data:{text:++reads<=2?'a':reads<=4?'b':'noise'}})});
+ ctx.stripOf=()=>({});ctx.matchAsianName=t=>t==='noise'?null:{local:t,d:1};
+ vm.runInContext(section('let chineseWorker','/* ---------- English / German'),ctx);
+ assert.equal((await ctx.readAsianName({})).match,null);
+ console.log('Chinese/promotional numbering, reprint conflicts and ambiguous OCR checks passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

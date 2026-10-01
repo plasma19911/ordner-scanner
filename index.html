@@ -332,7 +332,7 @@ function stripOf(card, y0, y1, x0, x1, targetW, raw){
   }
   g.putImageData(d, 0, 0); return o;
 }
-const NUM_RE = /((?:[A-Z5]{1,3}\s?)?[0-9OoIl|]{1,3})\s?[\/\\]\s?((?:[A-Z5]{1,3}\s?)?[0-9OoIl]{2,3})/;
+const NUM_RE = /(?<![A-Za-z0-9])((?:[A-Z5]{1,3}\s?)?[0-9OoIl|]{1,4})\s?[\/\\]\s?((?:[A-Z5]{1,3}\s?)?[0-9OoIl]{1,3})(?![A-Za-z0-9])/;
 const NUM_RE_G = new RegExp(NUM_RE.source, "g");
 let knownTotals = null;
 function getKnownTotals(){
@@ -350,15 +350,33 @@ function cleanPart(s){
 function findNumbers(text){
   const out = [];
   for (const m of text.matchAll(NUM_RE_G)){ const n = findNumber(m[0]); if (n) out.push(n); }
-  return out;
+  const promo = findPromoNumber(text); if (promo) out.push(promo);
+  return [...new Set(out)];
+}
+function findPromoNumber(text){
+  const t = String(text || "").normalize("NFKC").toUpperCase();
+  const jp = t.match(/(?<![A-Z0-9])(\d{1,3})\s*\/\s*(PCG|DP|DPt|BW|XY|SM|S|SV)-P(?![A-Z0-9])/i);
+  if (jp) return jp[1].padStart(3,"0") + "/" + jp[2].toUpperCase() + "-P";
+  const west = t.match(/(?<![A-Z0-9])(SWSH|SVP|SM|XY|BW)\s*(\d{1,3})(?![A-Z0-9])/);
+  return west ? west[1] + west[2] : null;
+}
+function specialNumber(num){
+  if (!num) return false;
+  if (findPromoNumber(num) === num) return true;
+  const m = /^(\d{2})(\d{2})\/(\d{1,2})$/.exec(num || "");
+  return !!(m && +m[1] > 0 && +m[2] > 0 && +m[2] <= +m[3]);
+}
+function findChineseCode(text){
+  return (String(text || "").toUpperCase().match(/\bC(?:BB|SM|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
 }
 function findNumber(text){
-  const m = text.match(NUM_RE); if (!m) return null;
+  text = String(text || "").normalize("NFKC");
+  const m = text.match(NUM_RE); if (!m) return findPromoNumber(text);
   let a = cleanPart(m[1]), b = cleanPart(m[2]);
   const known = /^(SV|GG|TG|RC|H|SH)$/;
   const pa = (a.match(/^[A-Z]*/) || [""])[0], pb = (b.match(/^[A-Z]*/) || [""])[0];
   if ((pa && !known.test(pa)) || (pb && !known.test(pb))){ a = a.replace(/^[A-Z]+/, ""); b = b.replace(/^[A-Z]+/, ""); }
-  if (!/^([A-Z]{1,2})?\d{1,3}$/.test(a) || !/^([A-Z]{1,2})?\d{2,3}$/.test(b)) return null;
+  if (!/^([A-Z]{1,2})?\d{1,4}$/.test(a) || !/^([A-Z]{1,2})?\d{1,3}$/.test(b)) return null;
   const pA = (a.match(/^[A-Z]*/) || [""])[0], pB = (b.match(/^[A-Z]*/) || [""])[0];
   if (pA !== pB){ if (pB && !pA) a = pB + a; else return null; }   // prefix belongs on both sides
   if (/^SV/.test(a)) a = "SV" + a.slice(2).padStart(3, "0");
@@ -488,20 +506,26 @@ async function getAsianWorker(){
   if (!asianWorker) asianWorker = Tesseract.createWorker(["jpn"]);
   return asianWorker;
 }
-async function readAsianName(card){
-  const w = await getAsianWorker();
+let chineseWorker = null;
+async function readAsianName(card, chinese=false){
+  const w = chinese ? await (chineseWorker ||= Tesseract.createWorker(["chi_sim"])) : await getAsianWorker();
   let all = "", best = null;
+  const votes = new Map();
   // modern layout (name after the stage badge) and old layouts (name further left / below the evolution line)
   for (const [y0, y1, x0, x1] of [[0.035, 0.095, 0.15, 0.60], [0.03, 0.10, 0.10, 0.65], [0.04, 0.13, 0.04, 0.62], [0.08, 0.17, 0.12, 0.62], [0.02, 0.16, 0.03, 0.70], [0.025, 0.11, 0.05, 0.70], [0.10, 0.25, 0.04, 0.64], [0.07, 0.22, 0.02, 0.75], [0.145, 0.215, 0.09, 0.47]]){
     await w.setParameters({tessedit_char_whitelist: "", tessedit_pageseg_mode: y1 - y0 > 0.1 ? "6" : "7"});
     const r = await w.recognize(stripOf(card, y0, y1, x0, x1, 900, y0 !== 0.145));
     const t = r.data.text || ""; all += " " + t;
     const m = matchAsianName(t);
-    if (m && (!best || m.d < best.d || (m.d === best.d && m.local.length > best.local.length))) best = m;
+    if (m) { const v=votes.get(m.local) || {match:m,count:0,score:0};
+      v.count++; v.score += m.d === 0 ? 3 : 1;
+      if (m.d < v.match.d) v.match=m; votes.set(m.local,v); }
   }
-  const combined = matchAsianName(all);
-  if (combined && (!best || combined.d < best.d || (combined.d === best.d && combined.local.length > best.local.length))) best = combined;
-  return {match: best, text: all};
+  const ranked=[...votes.values()].sort((a,b)=>b.score-a.score);
+  const first=ranked[0], second=ranked[1];
+  const sure=!!(first && (!second || first.score > second.score) && (first.match.d === 0 || first.count >= 2));
+  best=sure ? first.match : null;
+  return {match: best, text: all, sure};
 }
 
 /* ---------- English / German card title ---------- */
@@ -595,6 +619,7 @@ async function visualPick(card, cands){
   return null;
 }
 function numberOf(c){
+  if (/^(?:SWSH|SVP|SM|XY|BW)\d+$/i.test(c.localId)) return c.localId.toUpperCase();
   const sv = /^[A-Z]+\d+$/i.test(c.localId);
   const n = sv ? c.localId.toUpperCase() : String(parseInt(c.localId, 10)).padStart(3, "0");
   const total = sv ? c.localId.replace(/\d+$/, "").toUpperCase() + String(c.official) : String(c.official).padStart(3, "0");
@@ -616,6 +641,16 @@ async function lookup(lang, number){
   return lookupIn(lang, number);
 }
 async function lookupIn(lang, number){
+  const promo = /^(SWSH|SVP|SM|XY|BW)(\d{1,3})$/i.exec(number);
+  if (promo){
+    const prefix=promo[1].toUpperCase(), setId={SWSH:"swshp",SVP:"svp",SM:"smp",XY:"xyp",BW:"bwp"}[prefix];
+    const local=prefix === "SVP" ? String(Number(promo[2])) : prefix+promo[2];
+    const get=async language=>fetch(`https://api.tcgdex.net/v2/${language}/cards/${setId}-${local}`)
+      .then(r=>r.ok?r.json():null).catch(()=>null);
+    const c=await get(lang); if (!c?.name || c.set?.id !== setId) return [];
+    const en=lang === "en" ? c : await get("en");
+    return [{name:c.name,set:c.set.name,enName:en?.name || c.name,enSet:en?.set?.name || c.set.name,setId,image:c.image || ""}];
+  }
   const [n, d] = number.split("/"); if (!n || !d) return [];
   const prefix = ((n.match(/^[A-Z]+/i) || [""])[0]).toLowerCase(), official = parseInt(d.replace(/\D/g, ""), 10);
   const gallery = /(sv|gg|tg)$/i;
@@ -792,7 +827,7 @@ async function quickCheck(card){
     for (const [y0, y1, x0, x1] of [[0.92, 0.955, 0.08, 0.55], [0.935, 0.975, 0.08, 0.55], [0.925, 0.965, 0.55, 0.93]]){
       const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
       const n = findNumber(r.text);
-      if (n){ const d = parseInt(n.split("/")[1].replace(/\D/g, ""), 10); best = Math.max(best, totals.has(d) ? 2 : 1); if (best === 2) return 2; }
+      if (n){ const d = parseInt((n.split("/")[1] || "").replace(/\D/g, ""), 10); best = Math.max(best, totals.has(d) ? 2 : 1); if (best === 2) return 2; }
     }
     if (await readDexNo(c)) return 2;   // old Japanese card: "No. 001" bottom right
   }
@@ -822,6 +857,7 @@ async function readSingle(img, list, originalThumb){
   const totals = await getKnownTotals();
   const plausible = num => {
     if (!num) return false;
+    if (specialNumber(num)) return true;
     const [nn, dd] = num.split("/").map(x => parseInt(x.replace(/\D/g, ""), 10));
     if (!(nn >= 1) || nn > dd * 2 + 10) return false;
     return totals.size ? totals.has(dd) : dd >= 20;
@@ -867,15 +903,16 @@ async function readSingle(img, list, originalThumb){
     for (const l of jt.lines.filter(l => l.y < 0.5 * titleHeight).sort((x, y) => y.h - x.h)){ const m = matchAsianName(l.text.replace(/\s/g, "")); if (m && (!match || m.d < match.d)) match = m; }
     const narrow = await readAsianName(c);
     if (narrow.match && (!match || narrow.match.d <= match.d)) match = narrow.match;
-    opts.asian = {match, text: jt.text + " " + narrow.text};
+    opts.asian = {match:narrow.match || (match?.d === 0 ? match : null), text: jt.text + " " + narrow.text};
   }
   // set code printed next to the number (e.g. "009/080 ◆ L2", "250/190 s4a")
   let code = "";
   if (best.num){
-    const flat = lowText.replace(/\s+/g, " "), key = best.num.split("/")[1].replace(/^0+/, "");
+    const flat = lowText.replace(/\s+/g, " "), key = (best.num.split("/")[1] || "").replace(/^0+/, "");
     const at = flat.search(new RegExp("/\\s?[A-Z]{0,2}0*" + key));
     if (at >= 0) code = findCode(" " + flat.slice(Math.max(0, at - 40), at + 40).replace(/[^A-Za-z0-9\s]/g, " ") + " ");
   }
+  best.bottomText = lowText;
   return finishCard(c, list, "", best, lg, code, plausible, {...opts,originalThumb});
 }
 function posLabel(r){
@@ -886,6 +923,7 @@ async function readCard(card, list, pos, originalThumb){
   const totals = await getKnownTotals();
   const plausible = num => {
     if (!num) return false;
+    if (specialNumber(num)) return true;
     const [nn, dd] = num.split("/").map(x => parseInt(x.replace(/\D/g, ""), 10));
     if (!(nn >= 1) || nn > dd * 2 + 10) return false;   // secret rares go past the total, but not that far
     return totals.size ? totals.has(dd) : dd >= 20;
@@ -899,7 +937,7 @@ async function readCard(card, list, pos, originalThumb){
     for (const [y0, y1, x0, x1] of [[0.92, 0.952, 0.10, 0.50], [0.94, 0.972, 0.10, 0.50], [0.925, 0.965, 0.55, 0.93], [0.94, 0.98, 0.55, 0.93], [0.91, 0.965, 0.75, 0.96]]){
       const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
       let n = findNumber(r.text);
-      if (n && x0 >= 0.5 && parseInt(n.split("/")[1].replace(/\D/g, ""), 10) < 40) n = null;
+      if (n && x0 >= 0.5 && parseInt((n.split("/")[1] || "").replace(/\D/g, ""), 10) < 40) n = null;
       if (n) votes.push(n); conf = Math.max(conf, r.conf);
     }
     const num = votes.find(plausible) || votes[0] || null;
@@ -927,7 +965,7 @@ async function readCard(card, list, pos, originalThumb){
   for (const [y0, y1, x0, x1, psm, raw] of tries){
     const r = await ocr(stripOf(best.c, y0, y1, x0, x1, raw ? 800 : 900, raw), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: psm});
     let num = findNumber(r.text);
-    if (num && x0 >= 0.5 && parseInt(num.split("/")[1].replace(/\D/g, ""), 10) < 40) num = null;
+    if (num && x0 >= 0.5 && parseInt((num.split("/")[1] || "").replace(/\D/g, ""), 10) < 40) num = null;
     if (num) best.votes.push(num);
   }
   best.bottomText = "";
@@ -950,7 +988,7 @@ async function readCard(card, list, pos, originalThumb){
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   // small totals (< 40) are easy to misread from noise: they need two matching readings
-  const smallTotal = top && parseInt(top[0].split("/")[1].replace(/\D/g, ""), 10) < 40;
+  const smallTotal = top && parseInt((top[0].split("/")[1] || "").replace(/\D/g, ""), 10) < 40;
   const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6);
   best.num = okTop ? top[0] : "";
   best.numSure = !!(okTop && best.votes.filter(v => v === top[0]).length >= 2);
@@ -986,6 +1024,13 @@ async function referenceCards(lang, name){
     return (await r.json()).cards || [];
   })().catch(()=>{REFERENCE_CACHE.delete(key);return [];}));
   return REFERENCE_CACHE.get(key);
+}
+function referenceCompatible(d, r){
+  const normalize=n=>String(n || "").toUpperCase().replace(/\s/g, "").replace(/(^|\/)([A-Z]*)(0*)(\d+)/g,(_,sep,prefix,zero,digits)=>sep+prefix+Number(digits));
+  if (d.langSure && d.lang !== r.lang) return false;
+  if (d.numSure && d.number && (!r.number || normalize(d.number) !== normalize(r.number))) return false;
+  if (d.codeSure && d.code && String(d.code).toLowerCase() !== String(r.code || r.setId || "").toLowerCase()) return false;
+  return true;
 }
 async function referenceMetadata(ref){
   if (ref.lang === "ja"){
@@ -1080,14 +1125,14 @@ async function applyReferenceMatch(item, photo, force=false){
     }
     if (family && (d.lang === "ja" || !d.langSure))
       candidates.push(...await japaneseReferenceCandidates(d.local || japaneseFor(family)));
-    let ranked = await CardMatcher.rank(photo,candidates,r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+    let ranked = await CardMatcher.rank(photo,candidates.filter(r=>referenceCompatible(d,r)),r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
     if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     if (!ranked.sure && family){
       // A bad OCR title must not prevent a strong image match against another Pokémon.
       const fallback=(await Promise.all((await staticReferences()).filter(r=>r.cachedImage &&
         (!d.langSure || r.lang===d.lang)).map(r=>referenceMetadata({...r,image:r.cachedImage,directImage:true})))).filter(Boolean);
       const combined=[...new Map([...candidates,...fallback].map(r=>[r.source,r])).values()];
-      ranked=await CardMatcher.rank(photo,combined,r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
+      ranked=await CardMatcher.rank(photo,combined.filter(r=>referenceCompatible(d,r)),r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
       if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     }
     if (!ranked.sure){
@@ -1113,6 +1158,10 @@ async function applyReferenceMatch(item, photo, force=false){
 
 async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   let picks = [], latin = null;
+  const printedChineseCode = findChineseCode(best.bottomText || "");
+  const chinese = !!printedChineseCode || lg.lang === "zh";
+  if (printedChineseCode) { code=printedChineseCode; lg={lang:"zh",sure:true}; }
+
   if (["de", "en"].includes(lg.lang)){
     const readings = [];
     if (opts.latin) readings.push(opts.latin);
@@ -1120,14 +1169,15 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
       const t = await ocr(stripOf(c, 0.045, 0.14, 0.10, 0.67, 1200, raw), {tessedit_pageseg_mode: "7"});
       const m = matchLatinName(t.text, lg.lang); if (m) readings.push(m);
     }
-    if (!readings.length){
-      for (const [y0, y1, x0, x1] of [[0.005, 0.08, 0.12, 0.48], [0, 0.12, 0.05, 0.65]]){
+    if (!readings.some(r=>r.d===0)){
+      for (const [y0, y1, x0, x1] of [[0.025, 0.085, 0.16, 0.70], [0.005, 0.08, 0.12, 0.48], [0, 0.12, 0.05, 0.65]]){
         const title = stripOf(c, y0, y1, x0, x1, 700, true);
         const t = await ocr(title, {tessedit_pageseg_mode: "8"});
         const m = matchLatinName(t.text, lg.lang); if (m) readings.push(m);
       }
     }
     latin = readings.sort((a, b) => a.d - b.d)[0] || null;
+    if (latin?.d === 0 && latin.de !== latin.en && latin.sourceLang) lg = {lang:latin.sourceLang,sure:true};
   }
   if (latin && !plausible(best.num)){
     // no readable number: read the card name instead and look the card up by name
@@ -1152,10 +1202,10 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   }
   let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure, vintageSet = null;
   if (opts.asian?.match || ["ja", "zh"].includes(lg.lang) || !latin || !lg.sure || latin.d > 0){
-    const rn = opts.asian || await readAsianName(c);
+    const rn = (!chinese && opts.asian) || await readAsianName(c, chinese);
     asian = rn.match;
     if (asian) latin = null;
-    if (/[\u3040-\u30FF]/.test(rn.text) || (asian && asian.script === "ja")){ lang = "ja"; langSure = !!asian; }
+    if (asian && asian.script === "ja" && !chinese){ lang = "ja"; langSure = !!asian; }
     else if (asian && asian.script === "zh"){ lang = "zh"; langSure = true; }
     if (lang === "ja" && !plausible(best.num) && asian && opts.dexNo) vintageSet = await vintageJa(asian.local, c);
     if (lang === "ja" && !vintageSet){
@@ -1166,7 +1216,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
       }
     }
   }
-  const data = {picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
+  const data = {observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
     code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
   if (latin && lg.lang === "de" && latin.de !== latin.en && latin.sourceLang === "de" && latin.d === 0) data.langSure = true;
   if (vintageSet){ data.number = ""; data.code = ""; }
@@ -1225,6 +1275,7 @@ function cseSearch(q){
 }
 function searchQuery(d){
   if (d.vintageSet) return [d.enName || d.local, d.vintageSet].filter(Boolean).join(" ");
+  if (d.lang === "zh") return [d.enName || d.local || d.name,d.code,d.number].filter(Boolean).join(" ");
   const numerator = (d.number || "").split("/")[0];
   if ((d.lang === "ja" || d.lang === "zh") && d.code)
     return [[d.enName, `(${d.code} ${parseInt(numerator.replace(/\D/g, ""), 10)})`].filter(Boolean).join(" "), [d.enName || d.local, d.code, d.number].filter(Boolean).join(" ")].join(" || ");
@@ -1385,6 +1436,7 @@ function render(item){
   else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
+  if (d.printedCode && !d.codeSure) flags.push("Gedruckter Setcode: " + d.printedCode + " – Zuordnung prüfen");
   if (d.referenceState === "matched") flags.push("Per Referenzbild erkannt – Angaben prüfen");
   if (!d.langSure) flags.push("Sprache unsicher – bitte prüfen");
   if (["de", "en"].includes(d.lang) && d.number && !d.setSure) flags.push("Set nicht eindeutig – Treffer prüfen");
