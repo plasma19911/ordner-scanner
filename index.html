@@ -89,8 +89,9 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 </head>
 <body>
 <main>
-  <h1>Ordnerseite rein, Google-Links raus</h1>
-  <p class="lead">Ein Foto mit einer Karte oder eine ganze Ordnerseite, auch schief oder gedreht. Die Seite findet jede Karte, liest die Kartennummer und die Sprache und baut dir einen Google-Link „cardmarket Name Set Nummer“ und hinterlegt den ersten Cardmarket-Treffer als Link – mit Near Mint, Kartensprache und deutschen Händlern. Japanische Kartennamen werden mitgelesen. Alles läuft im Browser, ohne KI.</p>
+  <h1>Karten erkennen und Cardmarket finden</h1>
+  <p class="lead">Einzelfotos oder Ordnerseiten: Der Scanner liest Namen, Nummern und Sprache und vergleicht Bilder mit verfügbaren Referenzen. Eindeutige Karten erhalten einen direkten Cardmarket-Link. Unklare Treffer kannst du unter „Korrigieren“ prüfen oder über Google suchen. Deine Fotos werden im Browser verarbeitet.</p>
+  <p class="hint" id="referenceStatus" aria-live="polite">Referenzsammlung wird geladen …</p>
 
   <details class="setup" id="cseSetup">
     <summary id="cseSummary">Cardmarket-Links vollautomatisch (optional)</summary>
@@ -1533,6 +1534,7 @@ function requestViaGitHub(){
 }
 
 /* ---------- setup ---------- */
+staticReferences().then(cards=>{const el=$("#referenceStatus");if(el)el.textContent=cards.length?`${cards.filter(c=>c.cachedImage).length} Referenzbilder verfügbar. Weitere deutsche und englische Karten: TCGdex-Katalog.`:location.hostname.endsWith(".github.io")?"Referenzsammlung noch nicht verfügbar. Text- und TCGdex-Erkennung bleiben verfügbar.":"Live-Referenzsuche auf diesem Server verfügbar.";});
 $("#cseId").value = cseId();
 function updateSetupSummary(){
   if (LOCAL) return;

@@ -33,7 +33,14 @@ export async function fetchReference(url, fetcher=fetch, options={}) {
   let current=new URL(url);
   for(let hop=0;hop<4;hop++){
     if(!TRUSTED_ORIGINS.has(current.origin))throw new Error('Untrusted reference redirect');
-    const r=await fetcher(current.href,{...options,signal:AbortSignal.timeout(15000),redirect:'manual'});
+    let r;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        r=await fetcher(current.href,{...options,signal:AbortSignal.timeout(15000),redirect:'manual'});
+        if(r.status<500 || attempt===2) break;
+      }catch(e){if(attempt===2)throw e;}
+      await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));
+    }
     if(![301,302,303,307,308].includes(r.status))return r;
     const target=r.headers.get('Location');
     if(!target)throw new Error('Missing reference redirect');
