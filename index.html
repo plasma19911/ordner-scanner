@@ -269,6 +269,54 @@ function selectCardRects(found){
   const largest = out.length ? area(out[0]) : 0;
   return out.filter(r => area(r) >= largest*0.35);
 }
+// Binder pages are a regular grid. Pockets whose edges were not found (reflections, stickers, similar
+// colours next to each other) are filled in from the grid of the cards that were found.
+function completeGrid(rects, small){
+  if (rects.length < 3) return rects;
+  const W = small.width, H = small.height;
+  const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+  const ext = r => { const t = r.angle * Math.PI / 180, c = Math.abs(Math.cos(t)), s = Math.abs(Math.sin(t)); return {ax: r.w * c + r.h * s, ay: r.w * s + r.h * c}; };
+  const all = rects.map(r => ({...r, ...ext(r)}));
+  const AX = med(all.map(r => r.ax)), AY = med(all.map(r => r.ay));
+  const grid = all.filter(r => Math.abs(r.ax - AX) < 0.22 * AX && Math.abs(r.ay - AY) < 0.22 * AY);
+  if (grid.length < 3) return rects;
+  const cluster = (vals, tol) => { vals = vals.slice().sort((a, b) => a - b); const cl = [];
+    for (const v of vals){ const l = cl[cl.length - 1]; if (l && v - l[l.length - 1] < tol) l.push(v); else cl.push([v]); }
+    return cl.map(c => c.reduce((a, b) => a + b, 0) / c.length); };
+  const axis = (centers, size, limit) => {
+    if (!centers.length) return [];
+    let pitch = size * 1.08;
+    const steps = [];
+    for (let i = 1; i < centers.length; i++){ const d = centers[i] - centers[i - 1], k = Math.max(1, Math.round(d / pitch)); steps.push(d / k); }
+    if (steps.length) pitch = med(steps);
+    const out = [];
+    for (let i = 0; i < centers.length; i++){
+      out.push(centers[i]);
+      if (i + 1 < centers.length){ const k = Math.round((centers[i + 1] - centers[i]) / pitch); for (let j = 1; j < k; j++) out.push(centers[i] + j * (centers[i + 1] - centers[i]) / k); }
+    }
+    const fits = v => v - size / 2 >= -0.1 * size && v + size / 2 <= limit + 0.1 * size;
+    while (fits(out[0] - pitch)) out.unshift(out[0] - pitch);
+    while (fits(out[out.length - 1] + pitch)) out.push(out[out.length - 1] + pitch);
+    return out.filter(fits);
+  };
+  const xs = axis(cluster(grid.map(r => r.cx), AX * 0.5), AX, W);
+  const ys = axis(cluster(grid.map(r => r.cy), AY * 0.5), AY, H);
+  if (xs.length * ys.length > 30) return rects;
+  const g = small.getContext("2d", {willReadFrequently: true});
+  const added = [];
+  for (const y of ys) for (const x of xs){
+    if (all.some(r => Math.abs(r.cx - x) < 0.45 * AX && Math.abs(r.cy - y) < 0.45 * AY)) continue;
+    // empty pocket = dark binder shows through; skip it
+    const sx = Math.max(0, Math.round(x - AX * 0.3)), sy = Math.max(0, Math.round(y - AY * 0.3));
+    const sw = Math.min(W - sx, Math.round(AX * 0.6)), sh = Math.min(H - sy, Math.round(AY * 0.6));
+    if (sw < 4 || sh < 4) continue;
+    const p = g.getImageData(sx, sy, sw, sh).data; let v = 0, n = 0;
+    for (let i = 0; i < p.length; i += 16){ v += Math.max(p[i], p[i + 1], p[i + 2]); n++; }
+    if (v / n < 95) continue;
+    added.push({cx: x, cy: y, w: AX * 0.97, h: AY * 0.97, angle: 0});
+  }
+  return rects.concat(added);
+}
 function detectRects(cv, small){
   const src = cv.imread(small), g = new cv.Mat(), e = new cv.Mat();
   cv.cvtColor(src, g, cv.COLOR_RGBA2GRAY);
@@ -292,7 +340,7 @@ function detectRects(cv, small){
     [edges,k,cs,hi].forEach(m=>m.delete());
   }
   [src,g,e].forEach(m=>m.delete());
-  const out = selectCardRects(found);
+  const out = completeGrid(selectCardRects(found), small);
   // reading order: rows by y, then x
   const hMed = out.length ? out.map(r => Math.min(r.w, r.h)).sort((a,b) => a-b)[out.length >> 1] : 1;
   out.sort((a, b) => Math.abs(a.cy - b.cy) > hMed * 0.5 ? a.cy - b.cy : a.cx - b.cx);
@@ -357,7 +405,11 @@ function findPromoNumber(text){
   const t = String(text || "").normalize("NFKC").toUpperCase();
   const jp = t.match(/(?<![A-Z0-9])(\d{1,3})\s*\/\s*(PCG|DP|DPt|BW|XY|SM|S|SV)-P(?![A-Z0-9])/i);
   if (jp) return jp[1].padStart(3,"0") + "/" + jp[2].toUpperCase() + "-P";
-  const west = t.match(/(?<![A-Z0-9])(SWSH|SVP|SM|XY|BW)\s*(\d{1,3})(?![A-Z0-9])/);
+  // Japanese DP-era promos: "DPBP#451"
+  const dpbp = t.match(/DPBP\s*#?\s*(\d{3})(?!\d)/);
+  if (dpbp) return "DPBP#" + dpbp[1];
+  // western promos, newer ones with a language code in between: "SVP DE 192"
+  const west = t.match(/(?<![A-Z0-9])(SWSH|SVP|SM|XY|BW)\s*(?:EN|DE|FR|IT|ES|PT)?\s*(\d{1,3})(?![A-Z0-9])/);
   return west ? west[1] + west[2] : null;
 }
 function specialNumber(num){
@@ -519,7 +571,8 @@ async function readAsianName(card, chinese=false){
     const m = matchAsianName(t);
     if (m) { const v=votes.get(m.local) || {match:m,count:0,score:0};
       v.count++; v.score += m.d === 0 ? 3 : 1;
-      if (m.d < v.match.d) v.match=m; votes.set(m.local,v); }
+      if (m.d < v.match.d) v.match=m; votes.set(m.local,v);
+      if (v.score >= 6) break; }   // read cleanly twice: enough
   }
   const ranked=[...votes.values()].sort((a,b)=>b.score-a.score);
   const first=ranked[0], second=ranked[1];
@@ -754,7 +807,9 @@ async function processFiles(files){
   }
 }
 
+let photoDegVotes = {0: 0, 180: 0};
 async function processPhoto(file, cv){
+  photoDegVotes = {0: 0, 180: 0};   // all pockets of one binder page face the same way
   const n = ++photoNo;
   const sec = document.createElement("section"); sec.className = "photo";
   sec.innerHTML = `<h2>Foto ${n}<small></small></h2>
@@ -810,7 +865,7 @@ function artworkScore(card){
     return f / n; };
   return far(10, 40) - far(44, 74);
 }
-const NUM_OPTS = {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "11"};
+const NUM_OPTS = {tessedit_char_whitelist: "0123456789/SVGTRCHPBDW#E", tessedit_pageseg_mode: "11"};
 const DEX_RE = /N[oOaQ0][.,:]?\s?(\d{3})\b/;
 async function readDexNo(c){
   for (const [y0, y1, x0, x1, raw] of [[0.87, 0.99, 0.55, 0.97, true], [0.9, 0.99, 0.5, 0.95, true], [0.87, 0.99, 0.6, 0.95, false]]){
@@ -825,7 +880,7 @@ async function quickCheck(card){
   for (const deg of [0, 180]){
     const c = deg ? rotate(card, 180) : card;
     for (const [y0, y1, x0, x1] of [[0.92, 0.955, 0.08, 0.55], [0.935, 0.975, 0.08, 0.55], [0.925, 0.965, 0.55, 0.93]]){
-      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
+      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCHPBDW#E", tessedit_pageseg_mode: "7"});
       const n = findNumber(r.text);
       if (n){ const d = parseInt((n.split("/")[1] || "").replace(/\D/g, ""), 10); best = Math.max(best, totals.has(d) ? 2 : 1); if (best === 2) return 2; }
     }
@@ -931,11 +986,12 @@ async function readCard(card, list, pos, originalThumb){
   // 1) orientation: first try the card number on both ends ...
   let best = null;
   const tried = [];
-  for (const deg of [0, 180]){
+  const knownDeg = photoDegVotes[0] >= 2 && !photoDegVotes[180] ? 0 : photoDegVotes[180] >= 2 && !photoDegVotes[0] ? 180 : null;
+  for (const deg of (knownDeg === null ? [0, 180] : [knownDeg])){
     const c = deg ? rotate(card, 180) : card;
     const votes = []; let conf = 0;
     for (const [y0, y1, x0, x1] of [[0.92, 0.952, 0.10, 0.50], [0.94, 0.972, 0.10, 0.50], [0.925, 0.965, 0.55, 0.93], [0.94, 0.98, 0.55, 0.93], [0.91, 0.965, 0.75, 0.96]]){
-      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: "7"});
+      const r = await ocr(stripOf(c, y0, y1, x0, x1, 800, true), {tessedit_char_whitelist: "0123456789/SVGTRCHPBDW#E", tessedit_pageseg_mode: "7"});
       let n = findNumber(r.text);
       if (n && x0 >= 0.5 && parseInt((n.split("/")[1] || "").replace(/\D/g, ""), 10) < 40) n = null;
       if (n) votes.push(n); conf = Math.max(conf, r.conf);
@@ -945,8 +1001,11 @@ async function readCard(card, list, pos, originalThumb){
     tried.push(cand);
     const reliable = votes.filter(plausible).length;
     cand.reliable = reliable;
+    cand.deg = deg;
     if (reliable >= 2 && (!best || reliable > best.reliable)) best = cand;
   }
+  if (best) photoDegVotes[best.deg]++;
+  else if (knownDeg !== null) best = tried[0];   // page orientation is already known
   // ... and if that fails, use the card text (German/English words only read the right way up)
   if (!best){
     for (const cand of tried){
@@ -963,10 +1022,11 @@ async function readCard(card, list, pos, originalThumb){
                  [0.92, 0.955, 0.10, 0.50, "7", false], [0.935, 0.972, 0.10, 0.50, "7", false], [0.925, 0.965, 0.15, 0.50, "6", false],
                  [0.92, 0.96, 0.55, 0.93, "7", true], [0.935, 0.975, 0.55, 0.93, "7", true], [0.93, 0.97, 0.55, 0.93, "7", false], [0.91, 0.965, 0.75, 0.96, "7", true], [0.915, 0.965, 0.74, 0.96, "7", false]];
   for (const [y0, y1, x0, x1, psm, raw] of tries){
-    const r = await ocr(stripOf(best.c, y0, y1, x0, x1, raw ? 800 : 900, raw), {tessedit_char_whitelist: "0123456789/SVGTRCH", tessedit_pageseg_mode: psm});
+    const r = await ocr(stripOf(best.c, y0, y1, x0, x1, raw ? 800 : 900, raw), {tessedit_char_whitelist: "0123456789/SVGTRCHPBDW#E", tessedit_pageseg_mode: psm});
     let num = findNumber(r.text);
     if (num && x0 >= 0.5 && parseInt((num.split("/")[1] || "").replace(/\D/g, ""), 10) < 40) num = null;
     if (num) best.votes.push(num);
+    if (num && plausible(num) && best.votes.filter(v => v === num).length >= 4) break;   // confirmed, save time
   }
   best.bottomText = "";
   for (const raw of [true, false]){
@@ -1084,6 +1144,13 @@ async function japaneseReferenceCandidates(local){
   })().catch(()=>{JAPANESE_REFERENCE_CACHE.delete(local);return [];}));
   return JAPANESE_REFERENCE_CACHE.get(local);
 }
+// The reference list is checked for every card: remember results instead of recomputing them each time.
+const referenceMetaCache = new Map();
+function referenceMetadataCached(ref){
+  const key = [ref.lang, ref.slug, ref.number, ref.set, ref.image].join("|");
+  if (!referenceMetaCache.has(key)) referenceMetaCache.set(key, referenceMetadata(ref).then(m => m, () => null));
+  return referenceMetaCache.get(key);
+}
 async function applyReferenceMatch(item, photo, force=false){
   const d = item.data;
   if (!globalThis.CardMatcher || !window.cv?.ORB || (!["de","en","ja"].includes(d.lang) && d.langSure)) return;
@@ -1130,7 +1197,7 @@ async function applyReferenceMatch(item, photo, force=false){
     if (!ranked.sure && family){
       // A bad OCR title must not prevent a strong image match against another Pokémon.
       const fallback=(await Promise.all((await staticReferences()).filter(r=>r.cachedImage &&
-        (!d.langSure || r.lang===d.lang)).map(r=>referenceMetadata({...r,image:r.cachedImage,directImage:true})))).filter(Boolean);
+        (!d.langSure || r.lang===d.lang)).map(r=>referenceMetadataCached({...r,image:r.cachedImage,directImage:true})))).filter(Boolean);
       const combined=[...new Map([...candidates,...fallback].map(r=>[r.source,r])).values()];
       ranked=await CardMatcher.rank(photo,combined.filter(r=>referenceCompatible(d,r)),r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
       if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
@@ -1159,8 +1226,11 @@ async function applyReferenceMatch(item, photo, force=false){
 async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   let picks = [], latin = null;
   const printedChineseCode = findChineseCode(best.bottomText || "");
-  const chinese = !!printedChineseCode || lg.lang === "zh";
+  // Current simplified-Chinese prints number like "0304/09" (four digits over two). No other language does that.
+  const chineseNumber = [best.num, ...(best.votes || [])].some(v => /^\d{4}\/\d{2}$/.test(v || ""));
+  const chinese = !!printedChineseCode || chineseNumber || lg.lang === "zh";
   if (printedChineseCode) { code=printedChineseCode; lg={lang:"zh",sure:true}; }
+  else if (chineseNumber && lg.lang !== "ja") lg = {lang:"zh",sure:false};
 
   if (["de", "en"].includes(lg.lang)){
     const readings = [];

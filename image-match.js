@@ -60,16 +60,48 @@
     return m.inliers>=(unknownTitle?40:24) && m.ratio>=(unknownTitle ? .65 : .5) && m.coverage>=.06 &&
       (!b?.match || m.score-b.match.score>=8 && m.score>=b.match.score*1.25);
   }
+  // Reference descriptors are computed once per session (the same references are compared for every card).
+  const featureCache=new Map(), CACHE_MAX=220;
+  function cachedFeatures(key,im,cv){
+    if(key&&featureCache.has(key)){const f=featureCache.get(key);featureCache.delete(key);featureCache.set(key,f);return f;}
+    const f=features(im,cv);
+    if(!key)return f;
+    featureCache.set(key,f);
+    if(featureCache.size>CACHE_MAX){const [k,old]=featureCache.entries().next().value;featureCache.delete(k);old.delete();}
+    return f;
+  }
+  // Cheap colour thumbnail, used to pre-select candidates when there are very many.
+  function thumb(image){
+    const c=document.createElement('canvas');c.width=12;c.height=16;
+    c.getContext('2d').drawImage(image,0,0,12,16);
+    const p=c.getContext('2d').getImageData(0,0,12,16).data,v=[];
+    for(let i=0;i<p.length;i+=4)v.push(p[i],p[i+1],p[i+2]);
+    const m=v.reduce((a,b)=>a+b,0)/v.length,sd=Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length)||1;
+    return v.map(x=>(x-m)/sd);
+  }
+  const thumbCache=new Map();
   async function rank(photo,candidates,loadImage,cv,unknownTitle=false) {
     if(!cv?.ORB || !cv.findHomography)return {sure:false,list:candidates};
+    const keyOf=c=>c.source||c.image||'';
+    if(candidates.length>60){
+      // Many candidates (title not read): keep the 60 that look most alike before the expensive comparison.
+      const mineT=thumb(photo),pre=[];
+      let next=0;
+      const t=async()=>{while(next<candidates.length){const c=candidates[next++];
+        try{let v=thumbCache.get(keyOf(c));if(!v){const im=await loadImage(c);if(!im)continue;v=thumb(im);thumbCache.set(keyOf(c),v);}
+          pre.push({c,s:v.reduce((a,x,i)=>a+x*mineT[i],0)/v.length});}catch{}}};
+      await Promise.all(Array.from({length:6},t));
+      pre.sort((a,b)=>b.s-a.s);
+      candidates=pre.slice(0,60).map(x=>x.c);
+    }
     const mine=features(photo,cv), scored=[];
     try {
-      // Bound concurrent image downloads. Descriptor matrices are released after every comparison.
       let next=0;
-      const task=async()=>{while(next<candidates.length){const c=candidates[next++];let f;
-        try {const im=await loadImage(c);if(!im){scored.push({...c,match:null});continue;}
-          f=features(im,cv);scored.push({...c,match:compare(f,mine,cv)});
-        } catch {scored.push({...c,match:null});} finally {f?.delete();}
+      const task=async()=>{while(next<candidates.length){const c=candidates[next++];
+        try {const key=keyOf(c);let f=key&&featureCache.get(key);
+          if(!f){const im=await loadImage(c);if(!im){scored.push({...c,match:null});continue;}f=cachedFeatures(key,im,cv);}
+          scored.push({...c,match:compare(f,mine,cv)});
+        } catch {scored.push({...c,match:null});}
       }};
       await Promise.all(Array.from({length:Math.min(4,candidates.length)},task));
       scored.sort((a,b)=>(b.match?.score||0)-(a.match?.score||0));
