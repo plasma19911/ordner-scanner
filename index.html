@@ -33,6 +33,13 @@ button,input,select{font:inherit;color:inherit}
 @media (max-width:640px){.cards{grid-template-columns:1fr}}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .tile .pos{font-size:12px;color:var(--muted)}
+.tilethumb{display:block;width:100%;padding:0;border:0;background:var(--paper);border-radius:8px;cursor:zoom-in;margin-bottom:6px}
+.tilethumb img{display:block;width:100%;height:210px;object-fit:contain;border-radius:8px}
+@media (max-width:640px){.tilethumb img{height:260px}}
+#zoom{position:fixed;inset:0;background:rgba(20,10,28,.88);display:none;align-items:center;justify-content:center;z-index:50;padding:env(safe-area-inset-top,0px) 12px env(safe-area-inset-bottom,0px)}
+#zoom.open{display:flex}
+#zoom img{max-width:100%;max-height:92%;border-radius:10px}
+#zoom button{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:14px;width:44px;height:44px;border-radius:50%;border:0;background:#fff;color:#221a2b;font-size:26px;cursor:pointer}
 .tile .name{font-weight:800;font-size:18px;line-height:1.15}
 .tile a.cm{display:block;text-align:center;margin-top:8px;padding:9px 12px;border-radius:999px;background:var(--ok);color:#fff;text-decoration:none;font-weight:600}
 .tile div.cm{margin-top:8px;padding:8px 12px;border-radius:999px;text-align:center;font-size:14px;border:1px dashed var(--line);color:var(--muted)}
@@ -730,6 +737,17 @@ function cmWithFilters(url, lang){
   } catch(e){ return null; }
 }
 
+function openZoom(src){
+  let z = document.getElementById("zoom");
+  if (!z){
+    z = document.createElement("div"); z.id = "zoom"; z.setAttribute("role", "dialog"); z.setAttribute("aria-label", "Karte vergrößert");
+    z.innerHTML = '<img alt="Gescannte Karte groß"><button type="button" aria-label="Schließen">×</button>';
+    z.addEventListener("click", () => z.classList.remove("open"));
+    document.addEventListener("keydown", e => { if (e.key === "Escape") z.classList.remove("open"); });
+    document.body.append(z);
+  }
+  z.querySelector("img").src = src; z.classList.add("open");
+}
 function slugOf(d){ return d.cmFound ? d.cmFound.replace(/^https:\/\/www\.cardmarket\.com\/de\/Pokemon\/Products\/Singles\//, "") : ""; }
 function setLabel(d){
   const fromSlug = slugOf(d) ? slugOf(d).split("/")[0].replace(/-/g, " ") : "";
@@ -752,7 +770,7 @@ function render(item){
   else if (d.lang === "ja" && d.code && !d.codeSure) flags.push("Set-Kürzel geschätzt");
   let cm;
   if (d.cmFound) cm = `<a class="cm" href="${esc(cmLink(d))}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a>`;
-  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(d.cmPrices)}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Direkt zur Kartenseite. Filter (Near Mint, Sprache, Deutschland) dort einstellen – oder die Adresse dort kopieren und zurückkommen, dann merkt sich die Seite den Link mit Filtern.</div>`;
+  else if (d.cmPrices && d.cmState !== "searching") cm = `<a class="cm" data-prices href="${esc(d.cmPrices)}" target="_blank" rel="noopener">Auf Cardmarket öffnen</a><div class="hint">Filter für Near Mint, Sprache und Deutschland auf Cardmarket einstellen.</div>`;
   else if (d.cmState === "searching") cm = `<div class="cm wait">Suche Cardmarket-Link …</div>`;
   else if (d.cmState === "none") cm = `<div class="cm miss">Kein Cardmarket-Treffer</div>`;
   else if (d.cmState === "error") cm = `<div class="cm miss">Cardmarket-Helfer nicht erreichbar</div>`;
@@ -762,6 +780,7 @@ function render(item){
   else cm = `<div class="cm miss">Noch keine Nummer</div>`;
 
   item.el.innerHTML = `
+    <button class="tilethumb" type="button" data-zoom aria-label="Karte groß anzeigen"><img src="${item.thumb}" alt="Gescannte Karte"></button>
     ${item.pos ? `<div class="pos">${esc(item.pos)}</div>` : ""}
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
     <div class="meta">${esc(setLabel(d))} · ${esc(d.number || "Nr. ?")} · ${LANGS[d.lang]}</div>
@@ -773,7 +792,6 @@ function render(item){
     <details class="fix"${item.open ? " open" : ""}>
       <summary>Korrigieren</summary>
       <div class="fixbody">
-        <img class="thumb" src="${item.thumb}" alt="Erkannte Karte">
         <img class="strip" src="${item.strip}" alt="Ausschnitt mit Kartennummer">
         <div class="fields">
           <label>Kartenname<input data-f="name" value="${esc(d.name)}" placeholder="optional"></label>
@@ -789,6 +807,7 @@ function render(item){
       </div>
     </details>`;
   item.el.querySelector("[data-prices]")?.addEventListener("click", () => { awaiting = item; });
+  item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
     awaiting = item; render(item);
     window.open(googleUrl(d), "_blank", "noopener");
