@@ -501,7 +501,7 @@ function matchLatinName(text, lang){
           const nm = row[k]; if (!nm) continue;
           const d = lev(low, nm.toLowerCase());
           const limit = nm.length <= 4 ? 0 : nm.length <= 7 ? 1 : 2;
-          if (d <= limit && (!best || d < best.d)) best = {d, en: (en || "") + row[0], de: (de || "") + (row[4] || row[0]), printed: lang === "de" ? (de || "") + (row[4] || row[0]) : (en || "") + row[0]};
+          if (d <= limit && (!best || d < best.d)) best = {d, sourceLang: k === 4 ? "de" : "en", en: (en || "") + row[0], de: (de || "") + (row[4] || row[0]), printed: lang === "de" ? (de || "") + (row[4] || row[0]) : (en || "") + row[0]};
         }
       }
     }
@@ -1000,7 +1000,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   }
   const data = {picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
     code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
-  if (latin && lg.lang === "de" && latin.de !== latin.en && latin.d === 0) data.langSure = true;
+  if (latin && lg.lang === "de" && latin.de !== latin.en && latin.sourceLang === "de" && latin.d === 0) data.langSure = true;
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
@@ -1065,7 +1065,7 @@ function searchQuery(d){
 async function findCardmarket(item){
   const d = item.data;
   d.cmFound = ""; d.cmPrices = ""; d.cmState = "";
-  if (!d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (d.lang === "ja" && !d.vintageSet && !d.codeSure) || d.lang === "zh"){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
+  if (!d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
   d.cmPrices = pricesLink(d);
