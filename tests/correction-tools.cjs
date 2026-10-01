@@ -12,3 +12,5 @@ assert.equal(ctx.numberConsensus(['No. 244','No. 244']),'');
 assert.equal(ctx.numberConsensus(['００９／０８３','009/083']),'009/083');
 assert.equal(ctx.numberConsensus(['GG36/GG70','GG36/GG70']),'GG36/GG70');
 console.log('Crop bounds and footer consensus checks passed');
+
+assert.equal(ctx.cropBounds(1000,1400,{left:0,right:0,top:0,bottom:0}).w,10);
