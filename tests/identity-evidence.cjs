@@ -31,3 +31,9 @@ let requested='';ctx.fetch=async url=>{requested=url;return {ok:true,json:async(
  assert.equal((await ctx.readAsianName({})).match,null);
  console.log('Chinese/promotional numbering, reprint conflicts and ambiguous OCR checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+assert.equal(ctx.specialNumber('SV047/SV122'),true);
+assert.equal(ctx.specialNumber('GG01/GG70'),true);
+assert.equal(ctx.specialNumber('SV047/GG70'),false);
+assert.equal(ctx.referenceCompatible({lang:'de',number:'SV047/SV122',numSure:false},{lang:'de',number:'021/195'}),false);
+assert.equal(ctx.referenceCompatible({lang:'en',number:'SWSH244',numSure:false},{lang:'en',number:'SWSH124'}),false);

@@ -43,3 +43,15 @@ vorher 49 Rahmen einschließlich einer großen Fehlmarkierung. Die genaue
 Abdeckung, gefundenen Produktlinks und weiterhin offenen Varianten stehen in
 [der Fotoprüfung](tests/photo-validation-2026-10-01.md). Zuschnitt-Erfolg und
 sichere Karten-/Varianten-Erkennung werden getrennt bewertet.
+
+## Chinesische Varianten und erneute OCR-Prüfung (02.10.2026)
+
+Die App erklärt chinesische Setfamilien, Gem-Pack-Drucknummern, Seltenheitssymbole
+und Holo-Muster. Für die fotografierten Gem-Pack-Varianten gibt es konkrete
+Cardmarket-Vergleichslinks und bestätigbare Vorschläge bei fehlendem Setcode.
+DPBP-Kennungen gelten nicht mehr als Promo-Nummern; gelesene Teilset- und
+Promo-Nummern schützen vor widersprechenden Bildtreffern.
+
+Alle 57 Ausschnitte wurden durch die echte OCR geprüft. Noch sind nicht alle
+Karten automatisch sicher zugeordnet. Messwerte und Grenzen stehen in
+[der erneuten Fotoprüfung](tests/photo-validation-2026-10-02.md).
