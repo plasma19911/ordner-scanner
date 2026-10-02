@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const api=require('../chinese-cards.js');
+const d={lang:'zh',code:'CM1C',number:'0304/09'};
+api.apply(d);assert.equal(d.name,'Fuecoco');assert.equal(d.numSure,undefined);
+assert.match(api.describe(d).candidate,/Fuecoco-V4-CBB1C03$/);
+d.number='0402/08';api.apply(d);assert.equal(d.name,'Crocalor');
+d.number='9901/09';api.apply(d);assert.equal(d.name,'');assert.equal(api.describe(d),null);
+assert.equal(api.describe({lang:'zh',code:'CM1C',number:'0706/09'}).name,'Pikachu');
+assert.match(api.describe({lang:'zh',code:'CM1C',number:'0702/09'}).candidate,/Captain-Pikachu-V2-CBB1C07$/);
+for(const number of ['0200/07','0208/07','0202/09','0202/70'])assert.equal(api.describe({lang:'zh',code:'CM3C',number}),null);
+assert.equal(api.describe({lang:'ja',code:'CM3C',number:'0202/07'}),null);
+assert.equal(api.describe({lang:'zh',code:'CM3C',number:'0202/07',enName:'Gengar'}).conflict,true);
+const manual={lang:'zh',code:'CM3C',number:'0202/07',name:'Meine Karte',nameTouched:true};api.apply(manual);assert.equal(manual.name,'Meine Karte');
+const h=fs.readFileSync('index.html','utf8'),ctx=vm.createContext({});
+vm.runInContext(h.slice(h.indexOf('const NUM_RE'),h.indexOf('async function ocr(')),ctx);
+assert.equal(ctx.findNumber('DPBP#451'),null);
+assert.equal(ctx.findNumber('007/DP-P'),'007/DP-P');
+assert.equal(ctx.findChineseCode('CSV1C'),'CSV1C');
+assert.equal(ctx.findChineseCode('C SV 1 C'),'CSV1C');
+assert.equal(ctx.findChineseCode('CSM2AC'),'CSM2AC');
+console.log('Chinese printed variants, conflicts, correction invalidation and DPBP checks passed');
+
+const suggested=api.suggestions({lang:'zh',number:'0304/09'});
+assert.equal(suggested.length,1);assert.equal(suggested[0].printedCode,'CM1C');
+assert.equal(api.suggestions({lang:'ja',langSure:true,number:'0304/09'}).length,0);
+assert.equal(api.suggestions({lang:'zh',code:'CM3C',number:'0304/09'}).length,0);
+assert.equal(api.suggestions({lang:'zh',number:'0304/09',enName:'Meowth'}).length,0);
+assert.equal(api.describe({lang:'zh',code:'CM1C',number:'0701/09',enName:'Pikachu'}).conflict,false);

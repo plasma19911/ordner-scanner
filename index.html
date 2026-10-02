@@ -130,6 +130,17 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
     <div class="paste"><input id="ghToken" type="password" placeholder="github_pat_…" aria-label="GitHub-Schlüssel" autocomplete="off"><button class="btn small" id="ghTokenSave" type="button">Speichern</button></div>
   </details>
 
+  <details class="setup" id="chineseGuide">
+    <summary>Chinesische Sets, Symbole und Holo-Muster</summary>
+    <p>Vereinfachtes Chinesisch (Festlandchina) und traditionelles Chinesisch (z. B. Taiwan/Hongkong) haben unterschiedliche Ausgaben. Ein japanisches Set mit ähnlichem Bild ist kein sicherer Ersatz.</p>
+    <p><b>Set-Familien:</b> Sonne &amp; Mond, Schwert &amp; Schild, Karmesin &amp; Purpur; außerdem Sammelserien wie Gem Pack (宝石包), Collect 151 und Promos. Die gedruckte Kennung ist entscheidend. CM1C entspricht bei Cardmarket Gem Pack Vol. 1 / CBB1C, CM3C entspricht Vol. 3 / CBB3C.</p>
+    <p><b>Beispiel 0304/09 CM1C:</b> Kartenfamilie 03, Druckvariante 04 von 09. „09“ ist hier nicht die Kartenzahl des Sets. Cardmarket führt die Familie als CBB1C 03; seine V-Nummer muss anhand des Produktbildes geprüft werden.</p>
+    <p><b>Seltenheit im Gem Pack:</b> ● Kreis, ◆ Raute, ★ ein Stern, ★★ zwei Sterne, ★★★ drei Sterne. Das sind fünf eigene Seltenheitsstufen. Das Symbol allein bestimmt weder das Muster noch den Wert.</p>
+    <p><b>Optische Merkmale:</b> Typ-/Energiesymbol-Muster (属性纹样), Pokéball-Muster (精灵球纹样), Meisterball-Muster (大师球纹样), Goldprägung mit Gem-Pack-Logo (烫金), Schillerndes Pokémon (异色) und besondere Illustration (艺术插画). „Rotary“ bezeichnet im Handel ein geometrisches Drehmuster. Holo, Reverse, Textur, Stempel und Illustration sind unterschiedliche Merkmale; Spiegelungen der Ordnerhülle können sie verdecken. Nicht jede Variante kommt in jedem Set vor.</p>
+    <p><b>Spieleffekte:</b> Angriff, Fähigkeit, Schwäche, Resistenz und Rückzugskosten gehören zum Kartentext. ex, GX, V, VMAX und VSTAR sind Kartenmechaniken, keine Holo-Muster. Gleiche Illustration bedeutet nicht automatisch gleicher Text oder gleiche Ausgabe.</p>
+    <p>Offizielle Beschreibungen: <a href="https://www.pokemon.cn/tcg/product/15582.html" target="_blank" rel="noopener">Gem Pack 1</a> · <a href="https://www.pokemon.cn/tcg/product/15518.html" target="_blank" rel="noopener">2</a> · <a href="https://www.pokemon.cn/tcg/product/15431.html" target="_blank" rel="noopener">3</a> · <a href="https://www.pokemon.cn/tcg/product/20382.html" target="_blank" rel="noopener">4</a> · <a href="https://www.pokemon.cn/tcg/product/21078.html" target="_blank" rel="noopener">5</a> · <a href="https://www.pokemon.cn/tcg/product/23048.html" target="_blank" rel="noopener">6</a>. Das ist eine Orientierung, kein vollständiger Kartenkatalog.</p>
+  </details>
+
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
     <strong>Fotos hier reinziehen</strong>
     <div class="actions">
@@ -162,6 +173,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 <script src="image-match.js"></script>
 <script src="card-review.js"></script>
+<script src="chinese-cards.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
@@ -436,9 +448,7 @@ function findPromoNumber(text){
   const t = String(text || "").normalize("NFKC").toUpperCase();
   const jp = t.match(/(?<![A-Z0-9])(\d{1,3})\s*\/\s*(PCG|DP|DPt|BW|XY|SM|S|SV)-P(?![A-Z0-9])/i);
   if (jp) return jp[1].padStart(3,"0") + "/" + jp[2].toUpperCase() + "-P";
-  // Japanese DP-era promos: "DPBP#451"
-  const dpbp = t.match(/DPBP\s*#?\s*(\d{3})(?!\d)/);
-  if (dpbp) return "DPBP#" + dpbp[1];
+  // DPBP# is a species index shared by several prints, not a collector/promo number.
   // western promos, newer ones with a language code in between: "SVP DE 192"
   const west = t.match(/(?<![A-Z0-9])(SWSH|SVP|SM|XY|BW)\s*(?:EN|DE|FR|IT|ES|PT)?\s*(\d{1,3})(?![A-Z0-9])/);
   return west ? west[1] + west[2] : null;
@@ -446,13 +456,15 @@ function findPromoNumber(text){
 function specialNumber(num){
   if (!num) return false;
   if (findPromoNumber(num) === num) return true;
+  const subset=/^(SV|GG|TG|RC|H|SH)(\d{1,3})\/\1(\d{1,3})$/.exec(num);
+  if(subset) return +subset[2]>0 && +subset[3]>0;
   const m = /^(\d{2})(\d{2})\/(\d{1,2})$/.exec(num || "");
   return !!(m && +m[1] > 0 && +m[2] > 0 && +m[2] <= +m[3]);
 }
 function findChineseCode(text){
   const t=String(text || "").normalize("NFKC").toUpperCase();
-  const spaced=t.match(/\bC\s*(BB|SM|S|M)\s*(\d{1,2}(?:\.\d)?[A-Z]?)\s*C\b/);
-  return spaced ? "C"+spaced[1]+spaced[2]+"C" : (t.match(/\bC(?:BB|SM|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
+  const spaced=t.match(/\bC\s*(BB|SM|SV|S|M)\s*(\d{1,2}(?:\.\d)?[A-Z]?)\s*C\b/);
+  return spaced ? "C"+spaced[1]+spaced[2]+"C" : (t.match(/\bC(?:BB|SM|SV|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
 }
 function findNumber(text){
   text = normalizePrintedNumberText(text);
@@ -967,6 +979,17 @@ async function readSingle(img, list, originalThumb){
     const footer = await ocr(stripOf(best.c, 0.927, 0.954, 0.77, 0.89, 800, raw), {tessedit_char_whitelist: "0123456789/", tessedit_pageseg_mode: "13"});
     best.votes.push(...findNumbers(footer.text));
   }
+  // Gem Pack's tiny total is a variant count. Preserve a single plausible
+  // reading as uncertain, and read its black set-code box separately.
+  if (best.votes.some(v => /^\d{4}\/\d{2}$/.test(v) && specialNumber(v)) || findChineseCode(best.bottomText)){
+    for (const [y0,y1,x0,x1] of [[0.89,0.99,0,0.5],[0.85,1,0,0.55]]){
+      for (const raw of [true,false]){
+        const footer=await ocr(stripOf(best.c,y0,y1,x0,x1,1400,raw), {tessedit_pageseg_mode:"6"});
+        best.votes.push(...findNumbers(footer.text)); best.bottomText+="\n"+footer.text;
+      }
+
+    }
+  }
   const score = {};
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((x, y) => y[1] - x[1])[0];
@@ -1058,6 +1081,16 @@ async function readCard(card, list, pos, originalThumb){
     if (num) best.votes.push(num);
     if (num && plausible(num) && best.votes.filter(v => v === num).length >= 4) break;   // confirmed, save time
   }
+  // Binder edges shift the printed footer upwards relative to the crop.
+  // Scan the lower band when fixed-height probes have no repeated reading.
+  if (!best.votes.some(v => plausible(v) && best.votes.filter(n=>n===v).length>=2)){
+    for (const y0 of [0.855,0.875,0.895,0.915,0.935]){
+      for (const [x0,x1] of [[0.015,0.50],[0.50,0.98]]){
+        const r=await ocr(stripOf(best.c,y0,Math.min(1,y0+0.055),x0,x1,1000,true),NUM_OPTS);
+        best.votes.push(...findNumbers(r.text));
+      }
+    }
+  }
   best.bottomText = "";
   for (const raw of [true, false]){
     const bottom = await ocrLines(stripOf(best.c, 0.84, 0.99, 0.03, 0.97, 1800, raw));
@@ -1074,12 +1107,32 @@ async function readCard(card, list, pos, originalThumb){
     const footer = await ocr(stripOf(best.c, 0.927, 0.954, 0.77, 0.89, 800, raw), {tessedit_char_whitelist: "0123456789/", tessedit_pageseg_mode: "13"});
     best.votes.push(...findNumbers(footer.text));
   }
+  // Gem Pack's tiny total is a variant count. Preserve a single plausible
+  // reading as uncertain, and read its black set-code box separately.
+  if (best.votes.some(v => /^\d{4}\/\d{2}$/.test(v) && specialNumber(v)) || findChineseCode(best.bottomText)){
+    for (const y0 of [0.86,0.88,0.90,0.92,0.94]){
+      if(findChineseCode(best.bottomText)) break;
+      for(const raw of [true,false]){
+        const roi=stripOf(best.c,y0,Math.min(1,y0+0.045),0.03,0.23,800,true);
+        const r=await ocr(raw?roi:invert(roi), {tessedit_pageseg_mode:"7",tessedit_char_whitelist:"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"});
+        best.bottomText+="\n"+r.text;
+      }
+    }
+    for (const [y0,y1,x0,x1] of [[0.89,0.99,0,0.5],[0.85,1,0,0.55]]){
+      for (const raw of [true,false]){
+        const footer=await ocr(stripOf(best.c,y0,y1,x0,x1,1400,raw), {tessedit_pageseg_mode:"6"});
+        best.votes.push(...findNumbers(footer.text)); best.bottomText+="\n"+footer.text;
+      }
+      const codeRead=await ocr(invert(stripOf(best.c,y0,y1,0,0.25,1000,true)), {tessedit_pageseg_mode:"11",tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"});
+      best.bottomText+="\n"+codeRead.text;
+    }
+  }
   const score = {};
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
   // small totals (< 40) are easy to misread from noise: they need two matching readings
   const smallTotal = top && parseInt((top[0].split("/")[1] || "").replace(/\D/g, ""), 10) < 40;
-  const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6);
+  const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6 && !specialNumber(top[0]));
   best.num = okTop ? top[0] : "";
   best.numSure = !!(okTop && best.votes.filter(v => v === top[0]).length >= 2);
   const {c} = best;
@@ -1118,7 +1171,8 @@ async function referenceCards(lang, name){
 function referenceCompatible(d, r){
   const normalize=n=>String(n || "").toUpperCase().replace(/\s/g, "").replace(/(^|\/)([A-Z]*)(0*)(\d+)/g,(_,sep,prefix,zero,digits)=>sep+prefix+Number(digits));
   if (d.langSure && d.lang !== r.lang) return false;
-  if (d.numSure && d.number && (!r.number || normalize(d.number) !== normalize(r.number))) return false;
+  const specificNumber=/^(?:(SV|GG|TG|RC|H|SH)\d+\/\1\d+|(?:SWSH|SVP|SM|XY|BW)\d+)$/.test(d.number || "");
+  if ((d.numSure || specificNumber) && d.number && (!r.number || normalize(d.number) !== normalize(r.number))) return false;
   if (d.codeSure && d.code && String(d.code).toLowerCase() !== String(r.code || r.setId || "").toLowerCase()) return false;
   return true;
 }
@@ -1302,7 +1356,9 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   }
   let asian = null, jaSet = null, lang = lg.lang, langSure = lg.sure, vintageSet = null;
   if (opts.asian?.match || ["ja", "zh"].includes(lg.lang) || !latin || !lg.sure || latin.d > 0){
-    const rn = (!chinese && opts.asian) || await readAsianName(c, chinese);
+    let rn = (!chinese && opts.asian) || await readAsianName(c, chinese);
+    // Unknown script must not default permanently to the Japanese model.
+    if (!rn.match && !chinese && !lg.sure && !latin) rn=await readAsianName(c,true);
     asian = rn.match;
     if (asian) latin = null;
     if (asian && asian.script === "ja" && !chinese){ lang = "ja"; langSure = !!asian; }
@@ -1317,7 +1373,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
     }
   }
   const data = {observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
-    code: (jaSet && jaSet.code) || code, codeSure: !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
+    code: (jaSet && jaSet.code) || code, codeSure: !!printedChineseCode || !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
   if (latin && lg.lang === "de" && latin.de !== latin.en && latin.sourceLang === "de" && latin.d === 0) data.langSure = true;
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, originalThumb:opts.originalThumb, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
@@ -1329,6 +1385,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
 
 async function refreshLookup(item){
   const d = item.data;
+  if (typeof ChineseCards !== "undefined") ChineseCards.apply(d);
   const requestedLang = d.lang, requestedNumber = d.number;
   const options = await lookup(requestedLang, requestedNumber);
   if (d.lang !== requestedLang || d.number !== requestedNumber) return;
@@ -1567,7 +1624,14 @@ function render(item){
   const langOpts = Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === d.lang ? " selected" : ""}>${v}</option>`).join("");
   const setOpts = d.options.length > 1 || (d.options.length && !d.setSure)
     ? `<label>Treffer<select data-f="pick"><option value=""${!d.setSure ? " selected" : ""}>Bitte Karte / Set auswählen</option>${d.options.map((o, i) => `<option value="${i}"${d.setSure && o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
+  const speciesName=referenceFamily(d.enName || d.name);
+  const speciesUrl=["Chimchar","Cyndaquil","Magby","Magmar","Ponyta"].includes(speciesName)
+    ? "https://www.cardmarket.com/en/Pokemon/Species/"+speciesName : "";
   const flags = [];
+  const chinese = typeof ChineseCards !== "undefined" ? ChineseCards.describe(d) : null;
+  const chineseSuggestions = typeof ChineseCards !== "undefined" ? ChineseCards.suggestions(d) : [];
+  if(chinese?.conflict) flags.push("Name und chinesische Kartennummer widersprechen sich – bitte prüfen.");
+  if(chinese?.name && d.catalogName) flags.push("Name aus Setcode und Nummer ergänzt – am Foto prüfen.");
   const gem=gemPackIdentity(d);
   if(gem) flags.push(`Cardmarket: ${gem.code} ${gem.number}. Gedruckte Variante ${gem.variant}/${gem.variants} – Holo-Muster vergleichen.`);
   if (!d.number && d.vintageSet) {}
@@ -1596,6 +1660,7 @@ function render(item){
   item.el.innerHTML = `
     <button class="tilethumb" type="button" data-zoom aria-label="Karte groß anzeigen"><img src="${item.thumb}" alt="Gescannte Karte"></button>
     ${gem ? `<a class="google" href="${esc(cardmarketBrowseUrl(d))}" target="_blank" rel="noopener">Gem-Pack-Varianten auf Cardmarket</a>` : ""}
+    ${chinese?.candidate && !chinese.conflict ? `<a class="google" href="${esc(chinese.candidate)}" target="_blank" rel="noopener">Passenden Cardmarket-Kandidaten vergleichen</a><div class="hint">${esc(chinese.label)}. Nummer und Holo-Muster auf der Produktseite prüfen; anschließend den Link unter „Korrigieren“ übernehmen.</div>` : ""}
     ${item.pos ? `<div class="pos">${esc(item.pos)}</div>` : ""}
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
     <div class="meta">${esc(d.vintageSet || setLabel(d))} · ${esc(d.number || (d.dexNo ? "No. " + d.dexNo : "Nr. ?"))} · ${LANGS[d.lang]}</div>
@@ -1603,6 +1668,8 @@ function render(item){
     ${flags.length ? `<div class="flag">${flags.join(" · ")}</div>` : ""}
     ${!d.number && d.picks && d.picks.length ? `<div class="picks">${d.picks.map((pk, i) => `<button type="button" class="pick" data-pick="${i}">${pk.image ? `<img src="${esc(pk.image)}/low.webp" alt="" loading="lazy">` : ""}<span>${esc(pk.setName)}<br>${esc(numberOf(pk))}</span></button>`).join("")}</div>` : ""}
     ${d.referenceChoices?.length ? `<div class="hint">Kein eindeutiger Treffer. Vergleiche Sprache, Nummer und Set:</div><div class="picks">${d.referenceChoices.map((r,i)=>`<button type="button" class="pick" data-reference-pick="${i}"><img src="${esc(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`)}" alt="${esc(r.name)}" loading="lazy"><span>${esc(r.name)} · ${LANGS[r.lang]}<br>${esc(r.set)}<br>${esc(r.number || "Alte Karte ohne Sammlernummer")}</span></button>`).join("")}</div>` : ""}
+    ${speciesUrl && !d.cmFound && !d.cmPrices ? `<a class="google" href="${esc(speciesUrl)}" target="_blank" rel="noopener">Alle Ausgaben dieses Pokémon auf Cardmarket vergleichen</a>` : ""}
+    ${chineseSuggestions.length ? `<div class="hint">Setcode nicht erkannt. Diese Katalogeinträge passen zur gelesenen Nummer; Setcode und Bild am Original prüfen:</div><div class="picks">${chineseSuggestions.map((s,i)=>`<button type="button" class="pick" data-chinese-pick="${i}"><span>${esc(s.name)}<br>${esc(s.printedCode)} · ${esc(s.number)}<br>Angaben bestätigen</span></button>`).join("")}</div>` : ""}
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
     <a class="google" href="${esc(googleUrl(d))}" target="_blank" rel="noopener">Bei Google suchen</a>
@@ -1628,6 +1695,12 @@ function render(item){
       </div>
     </details>`;
 
+  item.el.querySelectorAll("[data-chinese-pick]").forEach(b=>b.addEventListener("click",async()=>{
+    const s=chineseSuggestions[+b.dataset.chinesePick];
+    Object.assign(d,{lang:"zh",langSure:true,code:s.printedCode,printedCode:s.printedCode,codeSure:true,number:s.number,numSure:true,
+      name:s.name,enName:s.name,local:s.local,nameTouched:true,cmFound:"",cmPrices:"",preferredSetId:"",setSure:false});
+    await refreshLookup(item);
+  }));
   item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", async () => {
     const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
@@ -1680,12 +1753,16 @@ function render(item){
       d.observedName=["de","en"].includes(d.lang)?d.name:"";
       d.preferredSetId="";d.setSure=false;
     }
-    if (f === "code") d.codeSure = true;
+    if (f === "code"){
+      d.codeSure = true;
+      const zhCode=findChineseCode(d.code);
+      if(zhCode){d.code=zhCode;d.printedCode=zhCode;d.lang="zh";d.langSure=true;}
+    }
     if (f === "number"){ d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
     if (f === "lang") d.langSure = true;
     if ((f === "number" || f === "lang") && (d.lang === "de" || d.lang === "en")){ d.nameTouched = false; d.observedName = ""; d.preferredSetId = ""; await refreshLookup(item); }
     else if (f === "number" && d.lang === "ja"){ const js = await lookupJa(d.number, d.local); if (js.code){ d.code = js.code; d.codeSure = js.sure; } render(item); renderExport(); findCardmarket(item); }
-    else { render(item); renderExport(); if (["name", "code", "number", "lang"].includes(f)) findCardmarket(item); }
+    else { if(typeof ChineseCards!=="undefined") ChineseCards.apply(d); render(item); renderExport(); if (["name", "code", "number", "lang"].includes(f)) findCardmarket(item); }
   }));
 }
 
@@ -1835,7 +1912,9 @@ async function recheckNumber(item){
     if(!number){setStatus("Nummer bleibt uneindeutig. Zuschnitt prüfen oder Nummer eintippen.",true);return;}
     const d=item.data;d.number=number;d.numSure=true;d.cmFound="";d.cmPrices="";
     d.referenceChoices=[];d.referenceSource="";d.referenceState="";d.preferredSetId="";d.setSure=false;
-    d.code=findCode(text);d.codeSure=false;d.vintageSet="";
+    const chineseCode=findChineseCode(text);
+    d.code=chineseCode || findCode(text);d.codeSure=!!chineseCode;d.vintageSet="";
+    if(chineseCode){d.lang="zh";d.langSure=true;d.printedCode=chineseCode;}
     if(d.lang==='ja'){
       const st=await lookupJa(number,d.local);if(item.referenceRevision!==revision)return;
       d.code=st.code || d.code;d.codeSure=!!st.sure;
