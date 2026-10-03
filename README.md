@@ -70,3 +70,30 @@ Der Workflow `Build local OCR and extended references` stellt die Laufzeit auch
 für die statische GitHub-Pages-Version bereit. Die Referenzsammlung wurde um die
 weiteren Pokémon aus den Testfotos erweitert. Ein Bildtreffer benötigt ausreichend
 Übereinstimmung innerhalb der Illustration; gleicher Kartentext allein reicht nicht.
+
+## Englische Namen und sprachübergreifende Artworks (03.10.2026)
+
+Fehlt ein eindeutiger Produktlink, sucht die App zusätzlich nach öffentlichen
+englischen Referenzbildern des Pokémon bzw. des genauen Trainer-/Itemnamens.
+Der Bildvergleich verwendet Merkmale innerhalb der Illustration, nicht den
+fremdsprachigen Regeltext. Bis zu acht passende Kandidaten werden angezeigt.
+Bei großen Sammlungen wählt ein Bildvergleich der verkleinerten Illustrationen
+60 Kandidaten für die ausführliche Prüfung; die Oberfläche nennt beide Zahlen.
+Ein Artwork-Treffer übernimmt weder Sprache noch Set oder Nummer der englischen
+Referenz. „Artwork bestätigen“ bestätigt nur die Illustration.
+
+Der Cardmarket-Übersichtslink ist auf die gespeicherten Pokémonnamen erweitert.
+Für Trainer, Items und Namen mit Sonderzeichen öffnet er die Namenssuche.
+Das Feld „Englischer Name“ kann korrigiert werden; bestätigte Übersetzungen
+bleiben im lokalen Namensspeicher des Browsers. Die mitgelieferte Datei
+`name-aliases.json` enthält 8.827 eindeutige Alias-Einträge aus dem englischen
+und deutschen TCGdex-Katalog. Mehrdeutige Übersetzungen werden nicht geraten.
+Die vorhandenen Pokémonnamen ergänzen Japanisch und beide chinesischen Schriften.
+Weitere Trainer-/Itemübersetzungen können bestätigt gespeichert werden; dies
+ist noch kein vollständiges japanisches oder chinesisches Trainerwörterbuch.
+
+Aktualisierung: `node scripts/build-name-index.mjs`. Fotos bleiben lokal.
+Die Cardmarket-Seiten ließen sich im Test nicht automatisiert abrufen (HTTP 403).
+Die Artwork-Bilder stammen deshalb aus TCGdex, nicht aus einem behaupteten
+Cardmarket-Vollimport. Details, Sprachabdeckung und verbleibende Grenzen:
+[Artwork-Prüfung](tests/artwork-validation-2026-10-03.md).
