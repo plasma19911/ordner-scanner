@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "pikaqian:0a562789-44b1-448d-99dc-a523305cdd2a",
+      "name": "Fuecoco",
+      "lang": "zh-cn",
+      "localId": "03 04",
+      "setId": "CBB1C",
+      "image": "https://images.pikaqian.com/cbb1c/0a562789-44b1-448d-99dc-a523305cdd2a.webp",
+      "source": "https://pikaqian.com/cards/0a562789-44b1-448d-99dc-a523305cdd2a",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:71db1208-4008-4035-884d-ce90e25e651f",
+      "name": "Captain Pikachu",
+      "lang": "zh-cn",
+      "localId": "07 04",
+      "setId": "CBB1C",
+      "image": "https://images.pikaqian.com/cbb1c/71db1208-4008-4035-884d-ce90e25e651f.webp",
+      "source": "https://pikaqian.com/cards/71db1208-4008-4035-884d-ce90e25e651f",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:ce5f92cc-6881-4ee4-b28b-b9702a630828",
+      "name": "Captain Pikachu",
+      "lang": "zh-cn",
+      "localId": "07 01",
+      "setId": "CBB1C",
+      "image": "https://images.pikaqian.com/cbb1c/ce5f92cc-6881-4ee4-b28b-b9702a630828.webp",
+      "source": "https://pikaqian.com/cards/ce5f92cc-6881-4ee4-b28b-b9702a630828",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:4f5ff566-da17-4108-94da-d3ed055f5cbc",
+      "name": "Captain Pikachu",
+      "lang": "zh-cn",
+      "localId": "07 02",
+      "setId": "CBB1C",
+      "image": "https://images.pikaqian.com/cbb1c/4f5ff566-da17-4108-94da-d3ed055f5cbc.webp",
+      "source": "https://pikaqian.com/cards/4f5ff566-da17-4108-94da-d3ed055f5cbc",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:c8e91b50-06bb-4aec-a487-3086420292de",
+      "name": "Crocalor",
+      "lang": "zh-cn",
+      "localId": "04 02",
+      "setId": "CBB1C",
+      "image": "https://images.pikaqian.com/cbb1c/c8e91b50-06bb-4aec-a487-3086420292de.webp",
+      "source": "https://pikaqian.com/cards/c8e91b50-06bb-4aec-a487-3086420292de",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:265608c6-ce17-457e-a0bf-b167444d8367",
+      "name": "Meowth",
+      "lang": "zh-cn",
+      "localId": "02 04",
+      "setId": "CBB3C",
+      "image": "https://images.pikaqian.com/cbb3c/265608c6-ce17-457e-a0bf-b167444d8367.webp",
+      "source": "https://pikaqian.com/cards/265608c6-ce17-457e-a0bf-b167444d8367",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:0179ec50-4ebc-49d1-8ddb-92973d5b22b7",
+      "name": "Meowth",
+      "lang": "zh-cn",
+      "localId": "02 03",
+      "setId": "CBB3C",
+      "image": "https://images.pikaqian.com/cbb3c/0179ec50-4ebc-49d1-8ddb-92973d5b22b7.webp",
+      "source": "https://pikaqian.com/cards/0179ec50-4ebc-49d1-8ddb-92973d5b22b7",
+      "artworkOnly": true
+    },
+    {
+      "id": "pikaqian:2b9c3218-0052-4bcb-bad1-779fe86adfc8",
+      "name": "Meowth",
+      "lang": "zh-cn",
+      "localId": "02 02",
+      "setId": "CBB3C",
+      "image": "https://images.pikaqian.com/cbb3c/2b9c3218-0052-4bcb-bad1-779fe86adfc8.webp",
+      "source": "https://pikaqian.com/cards/2b9c3218-0052-4bcb-bad1-779fe86adfc8",
+      "artworkOnly": true
+    },
+    {
+      "id": "pokemon-card:002124",
+      "name": "Magby",
+      "lang": "ja",
+      "localId": "DPBP#148",
+      "setId": "Bastiodon the Defender",
+      "image": "https://www.pokemon-card.com/assets/images/card_images/large/DP2/002124_P_BUBII.jpg",
+      "source": "https://www.pokemon-card.com/card-search/details.php/card/2124",
+      "artworkOnly": true
+    },
+    {
+      "id": "pokemon-card:002019",
+      "name": "Magby",
+      "lang": "ja",
+      "localId": "DPBP#148",
+      "setId": "Secret of the Lakes",
+      "image": "https://www.pokemon-card.com/assets/images/card_images/large/DP2/002019_P_BUBII.jpg",
+      "source": "https://www.pokemon-card.com/card-search/details.php/card/2019",
+      "artworkOnly": true
+    }
+  ]
+}

@@ -98,7 +98,7 @@
       const mineT=thumb(photo,artOnly),pre=[];
       let next=0;
       const t=async()=>{while(next<candidates.length){const c=candidates[next++];
-        try{let v=thumbCache.get(keyOf(c));if(!v){const im=await loadImage(c);if(!im)continue;v=thumb(im,artOnly);thumbCache.set(keyOf(c),v);}
+        try{let v=c.features?.thumbnail||thumbCache.get(keyOf(c));if(!v){const im=await loadImage(c);if(!im)continue;v=thumb(im,artOnly);thumbCache.set(keyOf(c),v);}
           pre.push({c,s:v.reduce((a,x,i)=>a+x*mineT[i],0)/v.length});}catch{}}};
       await Promise.all(Array.from({length:6},t));
       pre.sort((a,b)=>b.s-a.s);
@@ -109,8 +109,9 @@
       let next=0;
       const task=async()=>{while(next<candidates.length){const c=candidates[next++];
         try {const key=keyOf(c);let f=key&&featureCache.get(key);
+          if(!f && artOnly && c.features)f=restore(c.features,cv);
           if(!f){const im=await loadImage(c);if(!im){scored.push({...c,match:null});continue;}f=cachedFeatures(key,im,cv,artOnly);}
-          scored.push({...c,match:compare(f,mine,cv)});
+          try{scored.push({...c,match:compare(f,mine,cv)});}finally{if(c.features&&artOnly)f.delete();}
         } catch {scored.push({...c,match:null});}
       }};
       await Promise.all(Array.from({length:Math.min(4,candidates.length)},task));
@@ -118,5 +119,16 @@
       return {sure:!artOnly&&certain(scored,unknownTitle),list:scored,total,compared:candidates.length};
     } finally {mine.delete();}
   }
-  global.CardMatcher={rank,certain,rankArtwork:(photo,candidates,loadImage,cv)=>rank(photo,candidates,loadImage,cv,false,true)};
+  function serialize(image,cv){
+    const canvas=document.createElement('canvas'),scale=1000/(image.height||image.naturalHeight);
+    canvas.width=Math.round((image.width||image.naturalWidth)*scale);canvas.height=1000;canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    const f=features(canvas,cv,true);
+    try{return {version:1,width:f.width,height:f.height,points:Array.from({length:f.points.size()},(_,i)=>{const p=f.points.get(i).pt;return [p.x,p.y];}),descriptors:Array.from(f.desc.data),thumbnail:thumb(image,true)};}finally{f.delete();}
+  }
+  function restore(data,cv){
+    if(data.version!==1||!Array.isArray(data.points)||data.points.length>2200||(typeof data.descriptors==='string'?atob(data.descriptors).length:data.descriptors.length)!==data.points.length*32)throw Error('Invalid reference features');
+    const desc=cv.matFromArray(data.points.length,32,cv.CV_8UC1,typeof data.descriptors==='string'?Uint8Array.from(atob(data.descriptors),c=>c.charCodeAt(0)):data.descriptors);
+    return {width:data.width,height:data.height,points:{get:i=>({pt:{x:data.points[i][0],y:data.points[i][1]}})},desc,delete(){desc.delete();}};
+  }
+  global.CardMatcher={rank,certain,serializeArtwork:serialize,rankArtwork:(photo,candidates,loadImage,cv)=>rank(photo,candidates,loadImage,cv,false,true)};
 })(globalThis);
