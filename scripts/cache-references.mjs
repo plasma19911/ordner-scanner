@@ -1,15 +1,25 @@
-import sharp from 'sharp';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+const sharp=createRequire(import.meta.url)('sharp');
+import {mkdir,writeFile,readFile,stat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {referenceSearch,validImage,fetchReference} from '../src/reference-source.mjs';
 
 // Public catalogue entries, never scanner photos. Extend these queries to grow the Pages collection.
-const names={
+let names={
  en:['Heracross','Ivysaur',"Erika's Bulbasaur",'Muk','Flareon','Entei'],
  de:['Skaraborn','Bisaknosp','Erikas Bisasam','Sleimok','Flamara','Entei'],
  ja:['Heracross','Ivysaur',"Erika's Bulbasaur",'Muk','Flareon','Entei']
 };
-const cards=[];
+const extra=process.argv.slice(2);
+if(extra.length){
+ names={};
+ for(const arg of extra){const at=arg.indexOf(':');const lang=arg.slice(0,at),query=arg.slice(at+1);
+  if(!['de','en','ja'].includes(lang) || !query || query.length>60)throw new Error('Expected language:name');
+  (names[lang] ||= []).push(query);
+ }
+}
+const existing=await readFile('reference-cache.json','utf8').then(JSON.parse).catch(e=>{if(e.code==='ENOENT')return {cards:[]};throw e;});
+const cards=[...existing.cards];
 for(const [lang,queries] of Object.entries(names)){
  for(const name of queries){
   const found=await referenceSearch(lang,name);
@@ -25,6 +35,8 @@ let next=0,totalBytes=0,failures=0;
 const task=async()=>{while(next<images.length){
  const url=images[next++],safe=validImage(url);if(!safe)throw new Error('Invalid reference image');
  try{
+  const prior=existing.cards.find(c=>c.image===url && c.cachedImage);
+  if(prior){const info=await stat(prior.cachedImage).catch(()=>null);if(info){totalBytes+=info.size;cached.set(url,prior.cachedImage);continue;}}
   const r=await fetchReference(safe.href);
   if(!r.ok || !/^image\//.test(r.headers.get('content-type') || ''))throw new Error('Image unavailable');
   const original=Buffer.from(await r.arrayBuffer());

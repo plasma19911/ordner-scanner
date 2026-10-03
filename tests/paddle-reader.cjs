@@ -1,0 +1,11 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('paddle-reader.js','utf8'),ctx);
+const line=(text,y,score=.99)=>({text,score,poly:[[0,y],[100,y],[100,y+30],[0,y+30]]});
+const got=ctx.PaddleReader.fields([line('喵喵',40),line('30/40',600),line('0204/07',940),line('wrong',40,.2)],1000);
+assert.deepEqual(Array.from(got.titles,x=>x.text),['喵喵']);
+assert.deepEqual(Array.from(got.footer,x=>x.text),['0204/07']);
+const html=fs.readFileSync('index.html','utf8');
+const start=html.indexOf('async function refreshLookup('),end=html.indexOf('/* ---------- first Cardmarket',start);
+Object.assign(ctx,{lookup:async()=>[{name:'Wrong',setId:'wrong',set:'Wrong'}],render:()=>{},renderExport:()=>{},findCardmarket:()=>{}});
+vm.runInContext(html.slice(start,end),ctx);
+(async()=>{const item={data:{lang:'de',number:'004/094',numSure:false,options:[],name:''}};await ctx.refreshLookup(item);assert.equal(item.data.name,'');assert.equal(item.data.setSure,false);console.log('Position-aware OCR and uncertain number-only lookup checks passed');})().catch(e=>{console.error(e);process.exitCode=1});

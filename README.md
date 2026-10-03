@@ -55,3 +55,18 @@ Promo-Nummern schützen vor widersprechenden Bildtreffern.
 Alle 57 Ausschnitte wurden durch die echte OCR geprüft. Noch sind nicht alle
 Karten automatisch sicher zugeordnet. Messwerte und Grenzen stehen in
 [der erneuten Fotoprüfung](tests/photo-validation-2026-10-02.md).
+
+## Zusätzliche lokale OCR (03.10.2026)
+
+PaddleOCR liest zusätzlich den vollständigen Einzelkartenausschnitt in einem
+Browser-Worker. Nur Text aus dem Titelbereich wird als Name und aus dem Fußbereich
+als Drucknummer verwendet. Widersprechende sichere Nummern bleiben zur Prüfung
+offen. Falls das zusätzliche Modell nicht verfügbar ist, bleibt die bisherige
+Erkennung nutzbar. Fotos werden nicht an einen OCR-Dienst gesendet.
+
+`npm run build:ocr` erzeugt die lokale Laufzeit aus fest versionierten Paketen.
+Die Modelle werden beim ersten Einsatz vom offiziellen Paddle-Modellserver geladen.
+Der Workflow `Build local OCR and extended references` stellt die Laufzeit auch
+für die statische GitHub-Pages-Version bereit. Die Referenzsammlung wurde um die
+weiteren Pokémon aus den Testfotos erweitert. Ein Bildtreffer benötigt ausreichend
+Übereinstimmung innerhalb der Illustration; gleicher Kartentext allein reicht nicht.

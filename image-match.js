@@ -51,13 +51,15 @@
       const pts=cv.matFromArray(xs.length,1,cv.CV_32FC2,xs.flatMap((x,i)=>[x,ys[i]])),hull=new cv.Mat();
       let coverage;try{cv.convexHull(pts,hull);coverage=cv.contourArea(hull)/(ref.width*ref.height);}finally{pts.delete();hull.delete();}
       const inliers=xs.length, ratio=inliers/(src.length/2), score=inliers*Math.min(1,coverage/.22);
-      return {inliers,ratio,coverage,score};
+      const artwork=xs.map((x,i)=>({x,y:ys[i]})).filter(p=>p.x>ref.width*.08 && p.x<ref.width*.92 && p.y>ref.height*.12 && p.y<ref.height*.58);
+      return {inliers,ratio,coverage,score,artworkInliers:artwork.length,
+        corners:quad.map(p=>({x:p.x/photo.width,y:p.y/photo.height}))};
     } finally {matcher.delete();matches.delete();[from,to,mask,H].forEach(m=>m?.delete());}
   }
   function certain(list, unknownTitle=false) {
     const a=list[0],b=list[1];if(!a?.match)return false;
     const m=a.match;
-    return m.inliers>=(unknownTitle?40:24) && m.ratio>=(unknownTitle ? .65 : .5) && m.coverage>=.06 &&
+    return m.inliers>=(unknownTitle?40:24) && m.ratio>=(unknownTitle ? .65 : .5) && m.coverage>=.06 && (m.artworkInliers===undefined || m.artworkInliers>=8) &&
       (!b?.match || m.score-b.match.score>=8 && m.score>=b.match.score*1.25);
   }
   // Reference descriptors are computed once per session (the same references are compared for every card).
