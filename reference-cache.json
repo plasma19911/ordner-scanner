@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-02T17:04:02.889Z",
+  "generatedAt": "2026-10-03T09:18:40.106Z",
   "cards": [
     {
       "name": "Heracross",
@@ -5577,7 +5577,7 @@
       "lang": "ja",
       "image": "https://www.pokemonkarte.de/jap_img/kaarten/L1SS-14.png",
       "source": "https://www.pokemonkarte.de/japanse-kaart?kaart=L1SS-14",
-      "cachedImage": ""
+      "cachedImage": "reference-images/10f372057a18e7c71d2fd72b.webp"
     },
     {
       "name": "Ethan's Cyndaquil",
@@ -5918,7 +5918,7 @@
       "lang": "ja",
       "image": "https://www.pokemonkarte.de/jap_img/kaarten/L3-13.png",
       "source": "https://www.pokemonkarte.de/japanse-kaart?kaart=L3-13",
-      "cachedImage": ""
+      "cachedImage": "reference-images/c0a32b45c83932f567c72e3d.webp"
     },
     {
       "name": "Magmar",
@@ -6336,7 +6336,7 @@
       "lang": "ja",
       "image": "https://www.pokemonkarte.de/jap_img/kaarten/EXP-16.png",
       "source": "https://www.pokemonkarte.de/japanse-kaart?kaart=EXP-16",
-      "cachedImage": ""
+      "cachedImage": "reference-images/22f466ce80a4e83ac8899551.webp"
     },
     {
       "name": "Ponyta",
@@ -6589,7 +6589,7 @@
       "lang": "ja",
       "image": "https://www.pokemonkarte.de/jap_img/kaarten/M4-009.png",
       "source": "https://www.pokemonkarte.de/japanse-kaart?kaart=M4-009",
-      "cachedImage": ""
+      "cachedImage": "reference-images/bea97e9fba7e16057ceb8cfe.webp"
     },
     {
       "name": "Ninetales",
@@ -8008,7 +8008,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Eisenfalter-28-Paradoxrift.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/iron-moth-028-par?back=%2Fdeutsche-suche%3Fq%3DEisenfalter",
-      "cachedImage": ""
+      "cachedImage": "reference-images/966279a935b2c0c5fb6b0559.webp"
     },
     {
       "name": "Eisenfalter",
@@ -8063,7 +8063,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Teddiursa-73-Ruf-der-Legenden.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/teddiursa-73-cl?back=%2Fdeutsche-suche%3Fq%3DTeddiursa",
-      "cachedImage": ""
+      "cachedImage": "reference-images/bc12260a2dbf16a240d9036c.webp"
     },
     {
       "name": "Teddiursa",
@@ -8184,7 +8184,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Ursaring-Neo-Entdeckung.jpg",
       "source": "https://www.pokemonkarte.de/deutsche-karte/ursaring-15-n2?back=%2Fdeutsche-suche%3Fq%3DUrsaring",
-      "cachedImage": ""
+      "cachedImage": "reference-images/6ec5df6d45a94614eda4d50c.webp"
     },
     {
       "name": "Ursaring",
@@ -8261,7 +8261,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Ursaring-89-Entfesselt.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/ursaring-89-ul?back=%2Fdeutsche-suche%3Fq%3DUrsaring",
-      "cachedImage": ""
+      "cachedImage": "reference-images/0a7f597958870f6c1fe9045b.webp"
     },
     {
       "name": "Ursaring",
@@ -8316,7 +8316,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Ursaring-139-Flammende-Finsternis.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/ursaring-139-daa?back=%2Fdeutsche-suche%3Fq%3DUrsaring",
-      "cachedImage": ""
+      "cachedImage": "reference-images/d48c9881b88dd00996be1c48.webp"
     },
     {
       "name": "Ursaring",
@@ -8327,7 +8327,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Ursaring-172-Welten-im-Wandel.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/ursaring-172-cec?back=%2Fdeutsche-suche%3Fq%3DUrsaring",
-      "cachedImage": ""
+      "cachedImage": "reference-images/b6b87d269f89bb7703213f78.webp"
     },
     {
       "name": "Hisui Voltobal",
@@ -8404,7 +8404,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Voltobal-30-Schimmernde-Legenden.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/voltorb-30-slg?back=%2Fdeutsche-suche%3Fq%3DVoltobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/89176a1462d92038fa07482a.webp"
     },
     {
       "name": "Voltobal",
@@ -8415,7 +8415,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Voltobal-32-Plasma-Frost.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/voltorb-32-plf?back=%2Fdeutsche-suche%3Fq%3DVoltobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/579d119d34d9423e6f9bd282.webp"
     },
     {
       "name": "Voltobal",
@@ -8459,7 +8459,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Voltobal-45-Farbenschock.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/voltorb-45-viv?back=%2Fdeutsche-suche%3Fq%3DVoltobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/2d22c3b013920937af1907cd.webp"
     },
     {
       "name": "Enigmaras Voltobal",
@@ -8624,7 +8624,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Voltobal-83-Triumph.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/voltorb-83-tm?back=%2Fdeutsche-suche%3Fq%3DVoltobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/1f864adf9651311eef4cc744.webp"
     },
     {
       "name": "Voltobal",
@@ -8723,7 +8723,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Hisui-Lektrobal-3-Astralglanz.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/hisuian-electrode-3-asr?back=%2Fdeutsche-suche%3Fq%3DLektrobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/2c8fba2b2fdced1faac34e79.webp"
     },
     {
       "name": "Lektrobal",
@@ -8976,7 +8976,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Lektrobal-52-Uberschrittene-Schwellen.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/electrode-52-bcr?back=%2Fdeutsche-suche%3Fq%3DLektrobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/1e873c0edcbc03d588349df1.webp"
     },
     {
       "name": "Lektrobal",
@@ -9086,7 +9086,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Lektrobal-GX-155-Sturm-am-Firmament.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/electrode-gx-155-ces?back=%2Fdeutsche-suche%3Fq%3DLektrobal",
-      "cachedImage": ""
+      "cachedImage": "reference-images/88cf9d2eb13b03c1a03a8e1b.webp"
     },
     {
       "name": "Lektrobal-GX",
@@ -9141,7 +9141,7 @@
       "lang": "de",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Galar-Ponita-13-SWSH-Promo.png",
       "source": "https://www.pokemonkarte.de/deutsche-karte/galarian-ponyta-swsh013-sshp?back=%2Fdeutsche-suche%3Fq%3DGalar-Ponita",
-      "cachedImage": ""
+      "cachedImage": "reference-images/db5362fd002848830b76da40.webp"
     },
     {
       "name": "Galar-Ponita",
@@ -9361,7 +9361,7 @@
       "lang": "en",
       "image": "https://www.pokemonkarte.de/wp-content/uploads/Volcarona-25-Surging-Sparks.png",
       "source": "https://www.pokemonkarte.de/karte/volcarona-025-ssp?back=suche",
-      "cachedImage": ""
+      "cachedImage": "reference-images/265e148a050a7c375ecefb40.webp"
     },
     {
       "name": "Volcarona",
