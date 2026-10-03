@@ -97,3 +97,14 @@ Die Cardmarket-Seiten ließen sich im Test nicht automatisiert abrufen (HTTP 403
 Die Artwork-Bilder stammen deshalb aus TCGdex, nicht aus einem behaupteten
 Cardmarket-Vollimport. Details, Sprachabdeckung und verbleibende Grenzen:
 [Artwork-Prüfung](tests/artwork-validation-2026-10-03.md).
+
+### Kostenlose zusätzliche Artwork-Quellen
+
+Die Artwork-Suche benötigt kein Konto und keinen API-Schlüssel. Sie durchsucht
+TCGdex anhand bekannter Namensübersetzungen auch auf Deutsch, Japanisch und
+Chinesisch. Zusätzlich enthält `free-artwork-features.json` lokale Bildmerkmale
+von zehn öffentlich zugänglichen Referenzen; Quellen und Ausgaben stehen in
+`free-artwork-sources.json`. Damit funktionieren diese Vergleiche auch bei
+Ausfall der Katalog-API und bei unlesbarem Namen. Vorschauen stammen vom jeweiligen
+Originalanbieter. Ein Artwork-Treffer bestätigt weiterhin keine Holo-Variante oder
+Cardmarket-Ausgabe. Details: `tests/free-sources-validation-2026-10-03.md`.

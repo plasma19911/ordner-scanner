@@ -12,5 +12,9 @@
    return en?'https://www.cardmarket.com/de/Pokemon/Products/Search?searchString='+encodeURIComponent(en):'';
  }
  const ready=typeof fetch==='function'?fetch('name-aliases.json').then(r=>r.ok?r.json():null).then(data=>{for(const row of data?.aliases||[])add(...row);}).catch(()=>{}):Promise.resolve();
- root.NameIndex={configure,lookup,remember,speciesOf,browse,ready};
+ function namesFor(en,lang){
+   const out=[];for(const [k,v] of aliases)if(k.startsWith(lang+'|')&&v.size===1&&v.has(en))out.push(k.slice(lang.length+1));
+   return [...new Set(out)];
+ }
+ root.NameIndex={configure,lookup,remember,speciesOf,browse,namesFor,ready};
 })(globalThis);

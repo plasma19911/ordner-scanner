@@ -1476,15 +1476,14 @@ async function checkArtworks(item,photo,force=false){
   if(typeof ArtworkSearch==="undefined"||typeof NameIndex==="undefined"||item.artworkWorking)return;
   const d=item.data;await NameIndex.ready;
   const name=d.enName||NameIndex.lookup(d.local||d.name,d.lang);
-  if(!name){if(force){d.artworkState="Bitte zuerst den englischen Karten-, Trainer- oder Itemnamen eintragen.";render(item);}return;}
   const revision=(d.artworkRevision||0)+1;d.artworkRevision=revision;item.artworkWorking=true;
-  d.artworkState="Vergleiche verfügbare Artworks zu "+name+" …";render(item);
+  d.artworkState=name?"Vergleiche verfügbare Artworks zu "+name+" …":"Name unlesbar – vergleiche mit den mitgelieferten Referenzen …";render(item);
   try{
     const result=await ArtworkSearch.search(photo,name,r=>loadImg(r.image),window.cv);
     if(d.artworkRevision!==revision)return;
     d.artworkChoices=result.list;
-    d.artworkState=result.list.length?`${result.total} englische Referenzbilder gefunden, ${result.compared} näher verglichen. Dies sind Artwork-Kandidaten; die genaue Ausgabe ist noch nicht bestätigt.`:
-      "Kein passendes Artwork im verfügbaren englischen Bildkatalog. Die Cardmarket-Übersicht kann weitere Ausgaben enthalten.";
+    d.artworkState=result.list.length?`${result.total} Referenzbilder aus kostenlosen Quellen gefunden, ${result.compared} näher verglichen. Dies sind Artwork-Kandidaten; die genaue Ausgabe ist noch nicht bestätigt.`:
+      "Kein passendes Artwork in den verfügbaren kostenlosen Bildkatalogen. Die Cardmarket-Übersicht kann weitere Ausgaben enthalten.";
   }catch(error){if(d.artworkRevision===revision)d.artworkState=error.message||"Artwork-Suche nicht verfügbar.";}
   finally{item.artworkWorking=false;render(item);}
 }
@@ -1777,7 +1776,7 @@ function render(item){
     ${d.referenceChoices?.length ? `<div class="hint">Kein eindeutiger Treffer. Vergleiche Sprache, Nummer und Set:</div><div class="picks">${d.referenceChoices.map((r,i)=>`<button type="button" class="pick" data-reference-pick="${i}"><img src="${esc(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`)}" alt="${esc(r.name)}" loading="lazy"><span>${esc(r.name)} · ${LANGS[r.lang]}<br>${esc(r.set)}<br>${esc(r.number || "Alte Karte ohne Sammlernummer")}</span></button>`).join("")}</div>` : ""}
     ${speciesUrl && !d.cmFound && !d.cmPrices ? `<a class="google" href="${esc(speciesUrl)}" target="_blank" rel="noopener">Alle Ausgaben auf Cardmarket vergleichen</a>` : ""}
     ${d.artworkState ? `<div class="hint">${esc(d.artworkState)}</div>`:""}
-    ${d.artworkChoices?.length?`<div class="picks">${d.artworkChoices.map((r,i)=>`<button type="button" class="pick" data-artwork-pick="${i}"><img src="${esc(r.image)}" alt="${esc(r.name)} – Artwork-Kandidat" loading="lazy"><span>${esc(r.name)}<br>Englische Referenz: ${esc(r.setId)} · ${esc(r.localId)}<br>Artwork bestätigen, Ausgabe offenlassen</span></button>`).join("")}</div>`:""}
+    ${d.artworkChoices?.length?`<div class="picks">${d.artworkChoices.map((r,i)=>`<button type="button" class="pick" data-artwork-pick="${i}"><img src="${esc(r.image)}" alt="${esc(r.name)} – Artwork-Kandidat" loading="lazy"><span>${esc(r.name)}<br>Referenz (${esc(r.lang)}): ${esc(r.setId)} · ${esc(r.localId)}<br>Artwork bestätigen, Ausgabe offenlassen</span></button>`).join("")}</div>`:""}
     ${chineseSuggestions.length ? `<div class="hint">Setcode nicht erkannt. Diese Katalogeinträge passen zur gelesenen Nummer; Setcode und Bild am Original prüfen:</div><div class="picks">${chineseSuggestions.map((s,i)=>`<button type="button" class="pick" data-chinese-pick="${i}"><span>${esc(s.name)}<br>${esc(s.printedCode)} · ${esc(s.number)}<br>Angaben bestätigen</span></button>`).join("")}</div>` : ""}
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}

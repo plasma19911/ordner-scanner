@@ -12,12 +12,12 @@ vm.runInContext(fs.readFileSync('name-index.js','utf8'),ctx);assert.equal(ctx.Na
 ctx.NameIndex.configure([['Pikachu','ピカチュウ','皮卡丘','皮卡丘','Pikachu']]);
 vm.runInContext(fs.readFileSync('artwork-search.js','utf8'),ctx);
 (async()=>{
- let url='';const rows=await ctx.ArtworkSearch.candidates("Captain's Pikachu",async u=>{url=u;return {ok:true,json:async()=>[
+ let url='';const rows=await ctx.ArtworkSearch.candidates("Captain's Pikachu",async u=>{if(u==='free-artwork-features.json')return {ok:true,json:async()=>({cards:[]})};url=u;return {ok:true,json:async()=>[
   {id:'base1-58',localId:'58',name:'Pikachu',image:'https://assets.tcgdex.net/en/base/base1/58'},
   {id:'A1-1',localId:'1',name:'Pikachu',image:'https://assets.tcgdex.net/en/tcgp/A1/1'},
   {id:'bad',name:'Pikachu',image:'https://example.com/photo'},
   {id:'base1-1',name:'Bulbasaur',image:'https://assets.tcgdex.net/en/base/base1/1'}]};});
- assert.match(url,/name=like:Pikachu$/);assert.equal(rows.length,1);assert.equal(rows[0].artworkOnly,true);assert.equal(rows[0].lang,'en');
+ assert.match(url,/name=like:/);assert.equal(rows.length,1);assert.equal(rows[0].artworkOnly,true);assert.equal(rows[0].lang,'en');
  assert.equal(rows[0].number,undefined,'artwork does not manufacture a printed number');
  const html=fs.readFileSync('index.html','utf8'),start=html.indexOf('async function checkArtworks('),end=html.indexOf('async function refreshLookup(',start);
  let finish;ctx.ArtworkSearch.search=()=>new Promise(r=>finish=r);ctx.NameIndex.ready=Promise.resolve();ctx.render=()=>{};ctx.window={cv:{}};ctx.loadImg=()=>{};
@@ -27,4 +27,17 @@ vm.runInContext(fs.readFileSync('artwork-search.js','utf8'),ctx);
  finish({list:rows,total:1,compared:1});await job;assert.equal(item.data.artworkChoices,undefined,'stale artwork response discarded');
  assert.equal(item.data.lang,'zh');assert.equal(item.data.number,'0704/09');assert.equal(item.data.code,'CM1C');
  console.log('English aliases, species search, foreign artwork isolation and stale response checks passed');
+})().catch(e=>{console.error(e);process.exitCode=1});
+
+// The bundled supplement works without network APIs, even when OCR read no name.
+(async()=>{
+ const isolated=vm.createContext({URL,AbortSignal,console});
+ vm.runInContext(fs.readFileSync('artwork-search.js','utf8'),isolated);
+ const data=JSON.parse(fs.readFileSync('free-artwork-features.json'));
+ const fetcher=async url=>{if(url==='free-artwork-features.json')return {ok:true,json:async()=>data};throw Error('offline');};
+ assert.equal((await isolated.ArtworkSearch.candidates('',fetcher)).length,10);
+ const magby=await isolated.ArtworkSearch.candidates('Magby',fetcher);
+ assert.equal(magby.length,2);assert.ok(magby.every(c=>c.lang==='ja'&&c.artworkOnly));
+ for(const c of data.cards){assert.equal(Buffer.from(c.features.descriptors,'base64').length,c.features.points.length*32);assert.equal(c.features.thumbnail.length,576);}
+ console.log('Account-free supplement, unreadable names and failed-provider fallback passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
