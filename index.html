@@ -173,6 +173,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 <script src="image-match.js"></script>
 <script src="card-review.js"></script>
+<script src="paddle-reader.js"></script>
 <script src="chinese-cards.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
@@ -371,8 +372,16 @@ function detectRects(cv, small){
       const c=cs.get(i), r=cv.minAreaRect(c), w=r.size.width, h=r.size.height;
       const ar=Math.max(w,h)/Math.max(1,Math.min(w,h)), a=w*h;
       if(a>0.015*A && a<0.8*A && ar>1.25 && ar<1.6 &&
-        Math.abs(cv.contourArea(c))/a>0.65)
-        found.push({cx:r.center.x,cy:r.center.y,w,h,angle:r.angle});
+        Math.abs(cv.contourArea(c))/a>0.65){
+        const rect={cx:r.center.x,cy:r.center.y,w,h,angle:r.angle};
+        const poly=new cv.Mat();
+        try{
+          cv.approxPolyDP(c,poly,cv.arcLength(c,true)*0.025,true);
+          if(poly.rows===4 && cv.isContourConvex(poly) && Math.abs(cv.contourArea(poly))/a>0.8)
+            rect.quad=Array.from({length:4},(_,j)=>({x:poly.data32S[j*2],y:poly.data32S[j*2+1]}));
+        }finally{poly.delete();}
+        found.push(rect);
+      }
       c.delete();
     }
     [edges,k,cs,hi].forEach(m=>m.delete());
@@ -392,6 +401,31 @@ function detectRects(cv, small){
   return out;
 }
 function extractCard(img, r, f){
+  const cv=globalThis.cv;
+  if(r.quad?.length===4 && cv?.getPerspectiveTransform){
+    const pts=r.quad.map(p=>({x:p.x/f,y:p.y/f}));
+    const mx=pts.reduce((n,p)=>n+p.x,0)/4,my=pts.reduce((n,p)=>n+p.y,0)/4;
+    pts.sort((a,b)=>Math.atan2(a.y-my,a.x-mx)-Math.atan2(b.y-my,b.x-mx));
+    const top=pts.reduce((best,p,i)=>p.x+p.y<pts[best].x+pts[best].y?i:best,0);
+    const q=pts.slice(top).concat(pts.slice(0,top));
+    const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+    const w=Math.max(dist(q[0],q[1]),dist(q[2],q[3])),h=Math.max(dist(q[1],q[2]),dist(q[3],q[0]));
+    const k=Math.min(1.6,2400/Math.max(w,h)),out=canvas(w*k,h*k);
+    const x=Math.max(0,Math.floor(Math.min(...q.map(p=>p.x)))),y=Math.max(0,Math.floor(Math.min(...q.map(p=>p.y))));
+    const srcCanvas=canvas(Math.min(img.width-x,Math.ceil(Math.max(...q.map(p=>p.x)))-x+1),Math.min(img.height-y,Math.ceil(Math.max(...q.map(p=>p.y)))-y+1));
+    srcCanvas.getContext('2d').drawImage(img,-x,-y);
+    let src,from,to,H,dst;
+    try{
+      src=cv.imread(srcCanvas);dst=new cv.Mat();
+      from=cv.matFromArray(4,1,cv.CV_32FC2,q.flatMap(p=>[p.x-x,p.y-y]));
+      to=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,out.width-1,0,out.width-1,out.height-1,0,out.height-1]);
+      H=cv.getPerspectiveTransform(from,to);
+      cv.warpPerspective(src,dst,H,new cv.Size(out.width,out.height),cv.INTER_CUBIC,cv.BORDER_REPLICATE);
+      cv.imshow(out,dst);
+      return out.width>out.height?rotate(out,90):out;
+    }catch(e){console.warn('Perspective correction unavailable',e);}
+    finally{[src,from,to,H,dst].forEach(m=>m?.delete());}
+  }
   const cx = r.cx / f, cy = r.cy / f, w = r.w / f, h = r.h / f;
   const s = Math.min(1.6, 2400 / Math.max(w, h));
   const c = canvas(w * s, h * s), g = c.getContext("2d");
@@ -609,9 +643,9 @@ async function readAsianName(card, chinese=false){
   let all = "", best = null;
   const votes = new Map();
   // modern layout (name after the stage badge) and old layouts (name further left / below the evolution line)
-  for (const [y0, y1, x0, x1] of [[0.035, 0.095, 0.15, 0.60], [0.03, 0.10, 0.10, 0.65], [0.04, 0.13, 0.04, 0.62], [0.08, 0.17, 0.12, 0.62], [0.02, 0.16, 0.03, 0.70], [0.025, 0.11, 0.05, 0.70], [0.10, 0.25, 0.04, 0.64], [0.07, 0.22, 0.02, 0.75], [0.145, 0.215, 0.09, 0.47]]){
-    await w.setParameters({tessedit_char_whitelist: "", tessedit_pageseg_mode: y1 - y0 > 0.1 ? "6" : "7"});
-    const r = await w.recognize(stripOf(card, y0, y1, x0, x1, 900, y0 !== 0.145));
+  for (const [y0, y1, x0, x1, targetW=900, psm] of [[0, 0.13, 0.03, 0.75, 500, "11"], [0, 0.105, 0.10, 0.72, 500, "6"], [0.035, 0.095, 0.15, 0.60], [0.03, 0.10, 0.10, 0.65], [0.04, 0.13, 0.04, 0.62], [0.08, 0.17, 0.12, 0.62], [0.02, 0.16, 0.03, 0.70], [0.025, 0.11, 0.05, 0.70], [0.10, 0.25, 0.04, 0.64], [0.07, 0.22, 0.02, 0.75], [0.145, 0.215, 0.09, 0.47]]){
+    await w.setParameters({tessedit_char_whitelist: "", tessedit_pageseg_mode: psm || (y1 - y0 > 0.1 ? "6" : "7")});
+    const r = await w.recognize(stripOf(card, y0, y1, x0, x1, targetW, y0 !== 0.145));
     const t = r.data.text || ""; all += " " + t;
     const m = matchAsianName(t);
     if (m) { const v=votes.get(m.local) || {match:m,count:0,score:0};
@@ -1039,8 +1073,8 @@ async function readCard(card, list, pos, originalThumb){
   // 1) orientation: first try the card number on both ends ...
   let best = null;
   const tried = [];
-  const knownDeg = photoDegVotes[0] >= 2 && !photoDegVotes[180] ? 0 : photoDegVotes[180] >= 2 && !photoDegVotes[0] ? 180 : null;
-  for (const deg of (knownDeg === null ? [0, 180] : [knownDeg])){
+  // Cards in one binder may have different orientations. Check each card.
+  for (const deg of [0, 180]){
     const c = deg ? rotate(card, 180) : card;
     const votes = []; let conf = 0;
     for (const [y0, y1, x0, x1] of [[0.92, 0.952, 0.10, 0.50], [0.94, 0.972, 0.10, 0.50], [0.925, 0.965, 0.55, 0.93], [0.94, 0.98, 0.55, 0.93], [0.91, 0.965, 0.75, 0.96]]){
@@ -1058,7 +1092,6 @@ async function readCard(card, list, pos, originalThumb){
     if (reliable >= 2 && (!best || reliable > best.reliable)) best = cand;
   }
   if (best) photoDegVotes[best.deg]++;
-  else if (knownDeg !== null) best = tried[0];   // page orientation is already known
   // ... and if that fails, use the card text (German/English words only read the right way up)
   if (!best){
     for (const cand of tried){
@@ -1319,6 +1352,10 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   if (["de", "en"].includes(lg.lang)){
     const readings = [];
     if (opts.latin) readings.push(opts.latin);
+    for (const psm of ["6","11"]){
+      const t=await ocr(stripOf(c,0,0.13,0.025,0.8,700,true), {tessedit_pageseg_mode:psm});
+      const m=matchLatinName(t.text,lg.lang);if(m)readings.push(m);
+    }
     for (const raw of [true, false]){
       const t = await ocr(stripOf(c, 0.045, 0.14, 0.10, 0.67, 1200, raw), {tessedit_pageseg_mode: "7"});
       const m = matchLatinName(t.text, lg.lang); if (m) readings.push(m);
@@ -1378,6 +1415,46 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, originalThumb:opts.originalThumb, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
+  // Independent full-card OCR preserves title and footer positions.
+  let neural = typeof PaddleReader !== "undefined" ? await PaddleReader.read(c) : null;
+  const readTitle = result => {
+    for (const line of result?.titles || []){
+      const asianName = matchAsianName(line.text);
+      if (asianName?.d === 0) return {asian:asianName};
+      const latinName = matchLatinName(line.text, data.lang === "de" ? "de" : "en");
+      if (latinName?.d === 0) return {latin:latinName};
+    }
+    return null;
+  };
+  let title = readTitle(neural);
+  if(neural&&!title&&!data.name){
+    const reversed=rotate(c,180), retry=await PaddleReader.read(reversed), retryTitle=readTitle(retry);
+    if(retryTitle){
+      c=reversed;neural=retry;title=retryTitle;
+      item.thumb=c.toDataURL("image/jpeg",0.8);
+      item.strip=stripOf(c,0.84,0.975,0,0.66,900).toDataURL("image/jpeg",0.85);
+    }
+  }
+  if (neural){
+    if (title?.asian){
+      const n=title.asian;
+      Object.assign(data,{name:n.en||n.local,enName:n.en||"",local:n.local,observedName:"",lang:n.script,langSure:true,preferredSetId:""});
+    }else if(title?.latin){
+      const n=title.latin, language=n.sourceLang||data.lang;
+      Object.assign(data,{name:language==="de"?n.de:n.en,enName:n.en,local:"",observedName:language==="de"?n.de:n.en,lang:language,langSure:n.de!==n.en||data.langSure});
+    }
+    const numberLines=neural.footer.map(line=>({number:findNumber(line.text)||findNumber((line.text.match(/(?<!\d)\d{1,4}\s*\/\s*\d{1,3}(?!\d)/)||[])[0]||""),score:line.score})).filter(line=>line.number&&plausible(line.number));
+    const numbers=numberLines.map(line=>line.number);
+    if(title&&new Set(numbers).size===1){
+      const previous=data.number;
+      const conflict=!!previous&&previous!==numbers[0]&&data.numSure;
+      data.number=numbers[0];
+      data.numSure=!conflict&&(numberLines.some(line=>line.score>=0.9)||(previous===numbers[0]&&data.numSure));data.observedNumbers.push(numbers[0]);
+      if(conflict)data.ocrConflict=true;
+    }
+    const codes=neural.footer.filter(line=>line.score>=0.9).map(line=>findChineseCode(line.text)).filter(Boolean);
+    if(data.lang==="zh"&&new Set(codes).size===1){data.code=codes[0];data.printedCode=codes[0];data.codeSure=true;}
+  }
   await applyReferenceMatch(item, c);
   allCards.push(item); list.append(item.el);
   await refreshLookup(item);
@@ -1400,7 +1477,8 @@ async function refreshLookup(item){
       // A conflicting OCR name is evidence against accepting a number-only hit.
       matches = named;
     }
-    let chosen = matches.find(o => o.setId === d.preferredSetId) || (matches.length === 1 ? matches[0] : null);
+    const identitySupported = !!d.observedName || !!d.numSure || !!d.preferredSetId;
+    let chosen = identitySupported ? (matches.find(o => o.setId === d.preferredSetId) || (matches.length === 1 ? matches[0] : null)) : null;
     if (!chosen && matches.length > 1 && item.thumb){
       const image = await loadImg(item.thumb);
       if (image) chosen = await visualPick(image, matches);
@@ -1459,7 +1537,7 @@ function searchQuery(d){
 async function findCardmarket(item){
   const d = item.data;
   d.cmFound = ""; d.cmPrices = ""; d.cmState = "";
-  if (!d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
+  if (d.ocrConflict || !d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
   // Gem Pack foil versions share one Cardmarket collector number. A first
@@ -1638,6 +1716,7 @@ function render(item){
   else if (!d.number && d.dexNo) flags.push("Alte Karte ohne Set-Nummer – Set unbekannt");
   else if (!d.number && d.picks && d.picks.length) flags.push("Nummer nicht lesbar – welche Karte ist es?");
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
+  else if (d.ocrConflict) flags.push("OCR-Lesungen widersprechen sich – Nummer prüfen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
   if (d.printedCode && !d.codeSure) flags.push("Gedruckter Setcode: " + d.printedCode + " – Zuordnung prüfen");
   if (d.referenceState === "matched") flags.push("Per Referenzbild erkannt – Angaben prüfen");
@@ -1697,13 +1776,13 @@ function render(item){
 
   item.el.querySelectorAll("[data-chinese-pick]").forEach(b=>b.addEventListener("click",async()=>{
     const s=chineseSuggestions[+b.dataset.chinesePick];
-    Object.assign(d,{lang:"zh",langSure:true,code:s.printedCode,printedCode:s.printedCode,codeSure:true,number:s.number,numSure:true,
+    Object.assign(d,{ocrConflict:false,lang:"zh",langSure:true,code:s.printedCode,printedCode:s.printedCode,codeSure:true,number:s.number,numSure:true,
       name:s.name,enName:s.name,local:s.local,nameTouched:true,cmFound:"",cmPrices:"",preferredSetId:"",setSure:false});
     await refreshLookup(item);
   }));
   item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", async () => {
-    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
+    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.ocrConflict=false; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
   item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
@@ -1719,7 +1798,7 @@ function render(item){
     if(item.referenceWorking) return;
     const r=d.referenceChoices[Number(b.dataset.referencePick)];
     item.referenceRevision=(item.referenceRevision || 0)+1;
-    Object.assign(d,{name:r.name,enName:r.name,local:r.local || "",number:r.number,set:r.set,enSet:r.set,setId:r.setId,
+    Object.assign(d,{ocrConflict:false,name:r.name,enName:r.name,local:r.local || "",number:r.number,set:r.set,enSet:r.set,setId:r.setId,
       preferredSetId:r.setId,code:r.code,codeSure:!!r.code,vintageSet:r.vintageSet,lang:r.lang,langSure:true,
       numSure:!!r.number,setSure:true,nameTouched:true,observedName:r.lang==='ja'?"":r.name,
       referenceChoices:[],referenceSource:r.source,referenceState:'confirmed',cmFound:"",cmPrices:""});
@@ -1758,7 +1837,7 @@ function render(item){
       const zhCode=findChineseCode(d.code);
       if(zhCode){d.code=zhCode;d.printedCode=zhCode;d.lang="zh";d.langSure=true;}
     }
-    if (f === "number"){ d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
+    if (f === "number"){ d.ocrConflict=false; d.numSure = !!d.number; d.number = d.number.toUpperCase(); }
     if (f === "lang") d.langSure = true;
     if ((f === "number" || f === "lang") && (d.lang === "de" || d.lang === "en")){ d.nameTouched = false; d.observedName = ""; d.preferredSetId = ""; await refreshLookup(item); }
     else if (f === "number" && d.lang === "ja"){ const js = await lookupJa(d.number, d.local); if (js.code){ d.code = js.code; d.codeSure = js.sure; } render(item); renderExport(); findCardmarket(item); }

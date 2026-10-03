@@ -2,13 +2,17 @@
   "name": "ordner-scanner",
   "private": true,
   "scripts": {
-    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs && node tests/card-review.cjs && node tests/chinese-cards.cjs",
-    "build": "node build.mjs",
+    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs && node tests/card-review.cjs && node tests/chinese-cards.cjs && node tests/paddle-reader.cjs",
+    "build": "npm run build:ocr && node build.mjs",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "build:ocr": "node scripts/build-ocr.mjs"
   },
   "devDependencies": {
+    "@paddleocr/paddleocr-js": "0.4.2",
+    "esbuild": "0.25.12",
     "jsdom": "^30.1.1",
+    "onnxruntime-web": "1.30.0",
     "wrangler": "4.145.0"
   }
 }

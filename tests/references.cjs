@@ -29,7 +29,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
   assert.equal(await ctx.referenceMetadata({lang:'ja',slug:'unknown-244',set:'Unknown',number:''}),null);
   vm.runInContext(fs.readFileSync('image-match.js','utf8'),ctx);
   const good={match:{inliers:80,ratio:.85,coverage:.5,score:80}},badge={match:{inliers:80,ratio:.85,coverage:.02,score:7}};
-  assert.equal(ctx.CardMatcher.certain([good]),true);assert.equal(ctx.CardMatcher.certain([badge]),false);
+  assert.equal(ctx.CardMatcher.certain([good]),true);assert.equal(ctx.CardMatcher.certain([{match:{...good.match,artworkInliers:2}}]),false);assert.equal(ctx.CardMatcher.certain([badge]),false);
   assert.equal(ctx.CardMatcher.certain([good,{match:{...good.match,score:76}}]),false);
   vm.runInContext(html.slice(html.indexOf('function cardKey('),html.indexOf('function memGet(')),ctx);
   vm.runInContext(html.slice(html.indexOf('function gemPackIdentity'),html.indexOf('async function findCardmarket')),ctx);
