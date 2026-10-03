@@ -1416,28 +1416,40 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   const item = {pos, originalThumb:opts.originalThumb, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
   // Independent full-card OCR preserves title and footer positions.
-  const neural = typeof PaddleReader !== "undefined" ? await PaddleReader.read(c) : null;
-  if (neural){
-    let title = null;
-    for (const line of neural.titles){
+  let neural = typeof PaddleReader !== "undefined" ? await PaddleReader.read(c) : null;
+  const readTitle = result => {
+    for (const line of result?.titles || []){
       const asianName = matchAsianName(line.text);
-      if (asianName?.d === 0){ title={asian:asianName}; break; }
+      if (asianName?.d === 0) return {asian:asianName};
       const latinName = matchLatinName(line.text, data.lang === "de" ? "de" : "en");
-      if (latinName?.d === 0){ title={latin:latinName}; break; }
+      if (latinName?.d === 0) return {latin:latinName};
     }
+    return null;
+  };
+  let title = readTitle(neural);
+  if(neural&&!title&&!data.name){
+    const reversed=rotate(c,180), retry=await PaddleReader.read(reversed), retryTitle=readTitle(retry);
+    if(retryTitle){
+      c=reversed;neural=retry;title=retryTitle;
+      item.thumb=c.toDataURL("image/jpeg",0.8);
+      item.strip=stripOf(c,0.84,0.975,0,0.66,900).toDataURL("image/jpeg",0.85);
+    }
+  }
+  if (neural){
     if (title?.asian){
       const n=title.asian;
       Object.assign(data,{name:n.en||n.local,enName:n.en||"",local:n.local,observedName:"",lang:n.script,langSure:true,preferredSetId:""});
     }else if(title?.latin){
       const n=title.latin, language=n.sourceLang||data.lang;
-      Object.assign(data,{name:language==="de"?n.de:n.en,enName:n.en,local:"",observedName:n.printed,lang:language,langSure:n.de!==n.en||data.langSure});
+      Object.assign(data,{name:language==="de"?n.de:n.en,enName:n.en,local:"",observedName:language==="de"?n.de:n.en,lang:language,langSure:n.de!==n.en||data.langSure});
     }
-    const numbers=neural.footer.filter(line=>line.score>=0.9).map(line=>findNumber(line.text)).filter(n=>n&&plausible(n));
+    const numberLines=neural.footer.map(line=>({number:findNumber(line.text)||findNumber((line.text.match(/(?<!\d)\d{1,4}\s*\/\s*\d{1,3}(?!\d)/)||[])[0]||""),score:line.score})).filter(line=>line.number&&plausible(line.number));
+    const numbers=numberLines.map(line=>line.number);
     if(title&&new Set(numbers).size===1){
       const previous=data.number;
       const conflict=!!previous&&previous!==numbers[0]&&data.numSure;
-      if(!conflict)data.number=numbers[0];
-      data.numSure=!conflict;data.observedNumbers.push(numbers[0]);
+      data.number=numbers[0];
+      data.numSure=!conflict&&(numberLines.some(line=>line.score>=0.9)||(previous===numbers[0]&&data.numSure));data.observedNumbers.push(numbers[0]);
       if(conflict)data.ocrConflict=true;
     }
     const codes=neural.footer.filter(line=>line.score>=0.9).map(line=>findChineseCode(line.text)).filter(Boolean);
@@ -1764,13 +1776,13 @@ function render(item){
 
   item.el.querySelectorAll("[data-chinese-pick]").forEach(b=>b.addEventListener("click",async()=>{
     const s=chineseSuggestions[+b.dataset.chinesePick];
-    Object.assign(d,{lang:"zh",langSure:true,code:s.printedCode,printedCode:s.printedCode,codeSure:true,number:s.number,numSure:true,
+    Object.assign(d,{ocrConflict:false,lang:"zh",langSure:true,code:s.printedCode,printedCode:s.printedCode,codeSure:true,number:s.number,numSure:true,
       name:s.name,enName:s.name,local:s.local,nameTouched:true,cmFound:"",cmPrices:"",preferredSetId:"",setSure:false});
     await refreshLookup(item);
   }));
   item.el.querySelector("[data-zoom]").addEventListener("click", () => openZoom(item.thumb));
   item.el.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", async () => {
-    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
+    const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.ocrConflict=false; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
   item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
@@ -1786,7 +1798,7 @@ function render(item){
     if(item.referenceWorking) return;
     const r=d.referenceChoices[Number(b.dataset.referencePick)];
     item.referenceRevision=(item.referenceRevision || 0)+1;
-    Object.assign(d,{name:r.name,enName:r.name,local:r.local || "",number:r.number,set:r.set,enSet:r.set,setId:r.setId,
+    Object.assign(d,{ocrConflict:false,name:r.name,enName:r.name,local:r.local || "",number:r.number,set:r.set,enSet:r.set,setId:r.setId,
       preferredSetId:r.setId,code:r.code,codeSure:!!r.code,vintageSet:r.vintageSet,lang:r.lang,langSure:true,
       numSure:!!r.number,setSure:true,nameTouched:true,observedName:r.lang==='ja'?"":r.name,
       referenceChoices:[],referenceSource:r.source,referenceState:'confirmed',cmFound:"",cmPrices:""});
