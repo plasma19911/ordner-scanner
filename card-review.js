@@ -75,5 +75,16 @@
       update();dialog.showModal();
     });
   }
-  root.CardReview={rectangle,contains,split,review};
+  function canAuto(rects,photo){
+    if(!rects.length||!photo.width||!photo.height)return false;
+    return rects.every((r,i)=>{
+      if(r.inferred||![r.cx,r.cy,r.w,r.h,r.angle].every(Number.isFinite))return false;
+      const ratio=Math.max(r.w,r.h)/Math.min(r.w,r.h);
+      if(ratio<1.28||ratio>1.53||Math.min(r.w,r.h)<60)return false;
+      const t=r.angle*Math.PI/180,dx=(Math.abs(Math.cos(t))*r.w+Math.abs(Math.sin(t))*r.h)/2,dy=(Math.abs(Math.sin(t))*r.w+Math.abs(Math.cos(t))*r.h)/2;
+      if(r.cx-dx<0||r.cy-dy<0||r.cx+dx>photo.width||r.cy+dy>photo.height)return false;
+      return rects.every((o,j)=>i===j||(!contains(o,{x:r.cx,y:r.cy})&&!contains(r,{x:o.cx,y:o.cy})));
+    });
+  }
+  root.CardReview={rectangle,contains,split,review,canAuto};
 })(typeof globalThis==='object'?globalThis:window);

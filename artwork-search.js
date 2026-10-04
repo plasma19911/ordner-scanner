@@ -12,7 +12,8 @@
   const name=root.NameIndex?.speciesOf(requested)||requested;
   if(cache.has(name))return cache.get(name);
   const work=(async()=>{
-   const queries=[['en',name]];
+   const native=/[\u3040-\u30ff\u3400-\u9fff]/.test(name);
+   const queries=native?[['ja',name],['zh-cn',name],['zh-tw',name]]:[['en',name]];
    for(const [api,alias] of [['de','de'],['ja','ja'],['zh-cn','zh'],['zh-tw','zh']]){
     for(const local of (root.NameIndex?.namesFor(name,alias)||[]).slice(0,2))queries.push([api,local]);
    }
@@ -26,7 +27,7 @@
      const en=lang==='en'?c.name:root.NameIndex?.lookup(c.name,alias);
      return (base&&en&&root.NameIndex.speciesOf(en)===base)||c.name.toLowerCase()===query.toLowerCase();
     }).map(c=>({id:lang+':'+c.id,name:root.NameIndex?.lookup(c.name,alias)||c.name,lang,localId:c.localId,setId:c.id.slice(0,c.id.lastIndexOf('-')),image:c.image+'/high.webp',source:'tcgdex:'+lang+':'+c.id,artworkOnly:true}));
-   }).concat([freeReferences(fetcher).then(rows=>rows.filter(c=>c.name===name||root.NameIndex?.speciesOf(c.name)===name))]));
+   }).concat([freeReferences(fetcher).then(rows=>rows.filter(c=>native||c.name===name||root.NameIndex?.speciesOf(c.name)===name))]));
    const list=results.flatMap(r=>r.status==='fulfilled'?r.value:[]),seen=new Set();
    const unique=list.filter(c=>!seen.has(c.image)&&seen.add(c.image));
    // Failed providers remain retryable; do not cache an incomplete catalogue.

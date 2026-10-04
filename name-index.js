@@ -16,5 +16,16 @@
    const out=[];for(const [k,v] of aliases)if(k.startsWith(lang+'|')&&v.size===1&&v.has(en))out.push(k.slice(lang.length+1));
    return [...new Set(out)];
  }
- root.NameIndex={configure,lookup,remember,speciesOf,browse,namesFor,ready};
+ function title(text,languages=['de','en','ja','zh']){
+   const clean=String(text||'').normalize('NFKC').replace(/(?:HP|KP|LV\.?|レベル)\s*\d+/gi,' ').trim();
+   const words=clean.split(/\s+/),hits=[];
+   for(const lang of languages){
+     const direct=lookup(clean,lang);if(direct)hits.push({en:direct,local:clean,lang,length:clean.length});
+     for(let i=0;i<words.length;i++)for(let n=1;n<=6&&i+n<=words.length;n++){
+       const local=words.slice(i,i+n).join(' '),en=lookup(local,lang);if(en)hits.push({en,local,lang,length:local.length});
+     }
+   }
+   hits.sort((a,b)=>b.length-a.length);return hits[0]||null;
+ }
+ root.NameIndex={configure,lookup,remember,speciesOf,browse,namesFor,title,ready};
 })(globalThis);
