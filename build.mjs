@@ -1,6 +1,6 @@
 import {mkdir,copyFile,cp,access} from 'node:fs/promises';
 await mkdir('dist',{recursive:true});
-await Promise.all(['index.html','links.json','image-match.js','card-review.js','card-evidence.js','set-hints.json','chinese-cards.js','paddle-reader.js','name-index.js','name-aliases.json','artwork-search.js','free-artwork-features.json'].map(file=>copyFile(file,'dist/'+file)));
+await Promise.all(['index.html','links.json','image-match.js','card-review.js','card-evidence.js','card-facts.js','set-hints.json','chinese-cards.js','paddle-reader.js','name-index.js','name-aliases.json','artwork-search.js','free-artwork-features.json'].map(file=>copyFile(file,'dist/'+file)));
 try{
  await access('reference-cache.json');
  await copyFile('reference-cache.json','dist/reference-cache.json');

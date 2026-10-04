@@ -17,6 +17,8 @@ vm.runInContext(code, ctx);
 (async () => {
   for (const data of [
     {lang:'de',langSure:false,setSure:true,setId:'base1'},
+    {lang:'de',langSure:true,setSure:true,setId:'base1',factConflict:true},
+    {lang:'de',langSure:true,setSure:true,setId:'base1',detailMismatch:true},
     {lang:'de',langSure:true,setSure:false},
     {lang:'ja',langSure:true,code:'s8b',codeSure:false,number:'018/184'}
   ]) {
@@ -30,6 +32,13 @@ vm.runInContext(code, ctx);
   await ctx.findCardmarket(base);
   assert.equal(base.data.cmState,'prices');
   assert.equal(base.data.cmPrices,'https://prices.pokemontcg.io/cardmarket/base1-30');
+  const candidateUrl='https://www.cardmarket.com/en/Pokemon/Products/Singles/Test/Wrong-Print';
+  ctx.cseSearch=async()=>[{url:candidateUrl}];
+  ctx.memSet=()=>{throw new Error('Unverified search result was saved');};
+  const candidate={data:{lang:'ja',langSure:true,codeSure:true,code:'s8b',number:'018/184'}};
+  await ctx.findCardmarket(candidate);
+  assert.equal(candidate.data.cmFound,'');assert.equal(candidate.data.cmCandidate,candidateUrl);
+  assert.equal(candidate.data.cmState,'candidate');
   let complete;
   ctx.cseSearch = () => new Promise(resolve => { complete=resolve; });
   const item = {data:{lang:'ja',langSure:true,codeSure:true,code:'s8b',number:'018/184',name:'Flareon'}};

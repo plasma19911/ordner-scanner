@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('card-facts.js','utf8'),ctx);const f=ctx.CardFacts;
+const line=(text,score=.99,x=80)=>({text,score,poly:[[x,0],[100,0],[100,20],[x,20]]});
+const observed=f.printed({width:100,titles:[line('Swellow HP 90')],footer:[line('Illus. Mitsuhiro Arita')],body:[line('Peck'),line('30'),line('Wing Attack'),line('50'),line('120 HP',.99,0)]});
+assert.equal(observed.hp,90);assert.deepEqual(Array.from(observed.damage),['30','50']);
+assert.equal(f.printed({titles:[line('HP 90',.5)],body:[line('HP 120')]}).hp,null);
+assert.equal(f.printed({titles:[line('KP 90'),line('HP 120')]}).hpConflict,true);
+const good=f.catalogue({hp:90,illustrator:'Mitsuhiro Arita',attacks:[{name:'Peck',damage:30},{name:'Wing Attack',damage:50}]});
+assert.equal(f.assess(observed,good).score,15);
+assert.equal(f.assess(observed,{hp:40}).conflicts.length,1);
+assert.equal(f.assess(observed,null).conflicts.length,0);
+assert.equal(f.rank([{id:'wrong',facts:{hp:40}},{id:'right',facts:good}],observed)[0].id,'right');
+assert.equal(f.links({lang:'zh',enName:'Pikachu'}).length,1);
+assert.ok(f.guidance({factConflict:true}).includes('KP'));
+console.log('Structured HP, attacks, artist and conflict checks passed');
+const html=fs.readFileSync('index.html','utf8');
+const detail=html.slice(html.indexOf('async function readDetailPhoto('),html.indexOf('function openDetailPhoto('));
+const dc=vm.createContext({CardFacts:f,NameIndex:{title:()=>({en:'Pikachu'}),lookup:()=>'',speciesOf:s=>s.toLowerCase()},PaddleReader:{read:async()=>({lines:[line('Pikachu HP 90')],titles:[line('Pikachu HP 90')]})},ocrLines:async()=>({text:''}),stripOf:()=>null,render(){},renderExport(){},setStatus(){},refreshLookup:async()=>{},findNumbers:()=>[],findChineseCode:()=>'',findCode:()=>'',CardEvidence:{consensus:()=>({sure:false}),footerYears:()=>[]}});
+vm.runInContext(detail,dc);
+(async()=>{
+ const item={data:{name:'Swellow',enName:'Swellow',number:'072/108',lang:'en',cmFound:'old'}};
+ await dc.readDetailPhoto(item,{},'header');assert.equal(item.data.detailMismatch,true);assert.equal(item.data.cmFound,'');
+ let release;dc.PaddleReader.read=()=>new Promise(r=>release=r);
+ const stale={data:{name:'Swellow',enName:'Swellow',number:'072/108',lang:'en'}};
+ const pending=dc.readDetailPhoto(stale,{},'header');stale.data.number='073/108';release({lines:[line('Pikachu HP 90')]});await pending;
+ assert.equal(stale.data.detailMismatch,undefined);
+ console.log('Wrong-card detail photos and stale detail responses rejected');
+})().catch(e=>{console.error(e);process.exitCode=1;});

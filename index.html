@@ -175,6 +175,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="image-match.js"></script>
 <script src="card-review.js"></script>
 <script src="card-evidence.js"></script>
+<script src="card-facts.js"></script>
 <script src="name-index.js"></script>
 <script src="artwork-search.js"></script>
 <script src="paddle-reader.js"></script>
@@ -799,7 +800,7 @@ async function lookupIn(lang, number){
       .then(r=>r.ok?r.json():null).catch(()=>null);
     const c=await get(lang); if (!c?.name || c.set?.id !== setId) return [];
     const en=lang === "en" ? c : await get("en");
-    return [{name:c.name,set:c.set.name,enName:en?.name || c.name,enSet:en?.set?.name || c.set.name,setId,image:c.image || ""}];
+    return [{name:c.name,set:c.set.name,enName:en?.name || c.name,enSet:en?.set?.name || c.set.name,setId,image:c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null}];
   }
   const [n, d] = number.split("/"); if (!n || !d) return [];
   const prefix = ((n.match(/^[A-Z]+/i) || [""])[0]).toLowerCase(), official = parseInt(d.replace(/\D/g, ""), 10);
@@ -815,7 +816,7 @@ async function lookupIn(lang, number){
       const e = await get("en", st.id); if (e && e.name) enName = e.name;
       const es = (enSets || []).find(x => x.id === st.id); if (es) enSet = es.name;
     }
-    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id, image: c.image || ""};
+    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id, image: c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null};
   }));
   return hits.filter(Boolean);
 }
@@ -1492,6 +1493,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
     }
   }
   if (neural){
+    if(typeof CardFacts!=="undefined")data.printedFacts=CardFacts.printed(neural);
     if(typeof CardEvidence!=="undefined")data.copyrightYears=[...new Set([...data.copyrightYears,...CardEvidence.years(neural.footer.map(l=>l.text).join("\n"))])].sort((a,b)=>a-b);
     if (title?.asian){
       const n=title.asian;
@@ -1556,7 +1558,8 @@ async function refreshLookup(item){
   }
   if(typeof CardEvidence!=="undefined")enriched=CardEvidence.rank(enriched,{...d,symbolHint});
   if(d.lang!==requestedLang||d.number!==requestedNumber)return;
-  d.options=enriched;d.symbolHint=symbolHint;
+  d.options=typeof CardFacts!=="undefined"?CardFacts.rank(enriched,d.printedFacts):enriched;d.symbolHint=symbolHint;
+  d.factConflict=false;d.factMessage="";
   if (!d.nameTouched){
     const normalize = x => (x || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
     let matches = d.options;
@@ -1567,6 +1570,11 @@ async function refreshLookup(item){
       // A conflicting OCR name is evidence against accepting a number-only hit.
       matches = named;
     }
+    if(typeof CardFacts!=="undefined"){
+      const compatible=matches.filter(o=>!o.factCheck?.conflicts.length);
+      if(matches.length&&!compatible.length){d.factConflict=true;d.factMessage=matches[0].factCheck.conflicts.join(" · ");}
+      matches=compatible;
+    }
     const identitySupported = !!d.observedName || !!d.numSure || !!d.preferredSetId;
     let chosen = identitySupported ? (matches.find(o => o.setId === d.preferredSetId) || (matches.length === 1 ? matches[0] : null)) : null;
     if (!chosen && matches.length > 1 && item.thumb){
@@ -1576,6 +1584,11 @@ async function refreshLookup(item){
     d.setSure = !!chosen;
     d.set = ""; d.enSet = ""; d.setId = "";
     if (chosen) Object.assign(d, {name: chosen.name, set: chosen.set, enName: chosen.enName, enSet: chosen.enSet, setId: chosen.setId});
+  }
+  if(typeof CardFacts!=="undefined"&&d.nameTouched&&d.setId){
+    const selected=d.options.find(o=>o.setId===d.setId);
+    const check=CardFacts.assess(d.printedFacts,selected?.facts);
+    d.factConflict=!!check.conflicts.length;d.factMessage=check.conflicts.join(" · ");
   }
   render(item); renderExport();
   findCardmarket(item);
@@ -1626,8 +1639,8 @@ function searchQuery(d){
 }
 async function findCardmarket(item){
   const d = item.data;
-  d.cmFound = ""; d.cmPrices = ""; d.cmState = "";
-  if (d.ocrConflict || !d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
+  d.cmFound = ""; d.cmPrices = ""; d.cmCandidate = ""; d.cmState = "";
+  if (d.factConflict || d.detailMismatch || d.ocrConflict || !d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
   // Gem Pack foil versions share one Cardmarket collector number. A first
@@ -1641,16 +1654,9 @@ async function findCardmarket(item){
   const results = await cseSearch(query);
   if (query !== searchQuery(d) || key !== cardKey(d)) return;
   const hit = (results || []).map(r => extractCardmarket(r.unescapedUrl || r.url || "")).find(Boolean);
-  d.cmFound = hit || "";
-  if (d.cmFound) memSet(d, d.cmFound);
-  d.cmState = results === null ? (d.cmPrices ? "prices" : "error") : (hit ? "found" : (d.cmPrices ? "prices" : "none"));
-  if (hit){
-    const card = decodeURIComponent(slugOf(d).split("/")[1] || "");
-    const num = parseInt((d.number || "").split("/")[0].replace(/\D/g, ""), 10);
-    // the Cardmarket page confirms set code and number, e.g. "Dedenne-V2-s4a250"
-    if (d.code && num && new RegExp(d.code + "0*" + num + "$", "i").test(card)){ d.codeSure = true; d.numSure = true; if (d.lang === "ja") d.langSure = true; }
-    if (!d.name){ d.name = card.replace(/-V\d+(-.*)?$/, "").replace(/-(SHFSV)?\d+$/, "").replace(/-/g, " "); d.enName = d.name; }
-  }
+  // A search result alone cannot verify the print, language or foil variant.
+  d.cmCandidate = hit || "";
+  d.cmState = results === null ? "error" : hit ? "candidate" : "none";
   render(item); renderExport();
 }
 function cmLink(d){ return cmWithFilters(d.cmFound || d.cmPrices || "", d.lang) || ""; }
@@ -1733,7 +1739,7 @@ function acceptLink(item, url){
   if (!d.name){ d.name = card.replace(/-V\d+(-.*)?$/, "").replace(/-(SHFSV)?\d+$/, "").replace(/-/g, " "); d.enName = d.name; }
   render(item);
   // same card elsewhere on the page (e.g. a second Dedenne) gets the link too
-  allCards.filter(o => o !== item && !o.data.cmFound && cardKey(o.data) && cardKey(o.data) === cardKey(d))
+  allCards.filter(o => o !== item && !o.data.cmFound && !o.data.factConflict && !o.data.detailMismatch && !o.data.ocrConflict && cardKey(o.data) && cardKey(o.data) === cardKey(d))
           .forEach(o => { o.data.cmFound = url; o.data.cmState = "found"; render(o); });
   renderExport();
 }
@@ -1807,6 +1813,9 @@ function render(item){
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (d.ocrConflict) flags.push("OCR-Lesungen widersprechen sich – Nummer prüfen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
+  if (d.factConflict) flags.push(d.factMessage || "Spielwerte widersprechen dem Treffer");
+  if (d.detailMismatch) flags.push("Detailaufnahme passt nicht sicher zu dieser Karte");
+  if (d.printedFacts?.hp) flags.push("Gelesene KP: "+d.printedFacts.hp);
   if (d.titleUnverified) flags.push("Gedruckter Titel gelesen – Katalogtreffer prüfen");
   if (d.artworkNameInferred) flags.push("Name über Artwork erkannt – Sprache und Ausgabe prüfen");
   if (d.symbolHint) flags.push("Ähnliches Setsymbol: "+d.symbolHint+" – bitte prüfen");
@@ -1845,6 +1854,9 @@ function render(item){
     ${d.artworkState ? `<div class="hint">${esc(d.artworkState)}</div>`:""}
     ${d.artworkChoices?.length?`<div class="picks">${d.artworkChoices.map((r,i)=>`<button type="button" class="pick" data-artwork-pick="${i}"><img src="${esc(r.image)}" alt="${esc(r.name)} – Artwork-Kandidat" loading="lazy"><span>${esc(r.name)}<br>Referenz (${esc(r.lang)}): ${esc(r.setId)} · ${esc(r.localId)}<br>Artwork bestätigen, Ausgabe offenlassen</span></button>`).join("")}</div>`:""}
     ${chineseSuggestions.length ? `<div class="hint">Setcode nicht erkannt. Diese Katalogeinträge passen zur gelesenen Nummer; Setcode und Bild am Original prüfen:</div><div class="picks">${chineseSuggestions.map((s,i)=>`<button type="button" class="pick" data-chinese-pick="${i}"><span>${esc(s.name)}<br>${esc(s.printedCode)} · ${esc(s.number)}<br>Angaben bestätigen</span></button>`).join("")}</div>` : ""}
+    ${typeof CardFacts!=="undefined"&&(!d.cmFound&&!d.cmPrices||d.factConflict)?`<div class="hint">${esc(CardFacts.guidance(d))}</div><button class="btn small" type="button" data-detail>Detailfoto ergänzen</button>${CardFacts.links(d).map(l=>`<a class="google" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}`:""}
+    ${d.detailNumberCandidate||d.detailCodeCandidate?`<div class="hint">Abweichend im Detailfoto gelesen: ${esc(d.detailNumberCandidate||d.number)} ${esc(d.detailCodeCandidate||d.code)}</div><button class="btn small" data-detail-accept>Diese Angaben nach Vergleich übernehmen</button>`:""}
+    ${d.cmCandidate ? `<a class="google" href="${esc(d.cmCandidate)}" target="_blank" rel="noopener">Cardmarket-Suchtreffer prüfen</a><div class="hint">Noch nicht bestätigt. Bild, Nummer und Ausgabe vergleichen; den passenden Link unter „Korrigieren“ übernehmen.</div>` : ""}
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
     <a class="google" href="${esc(googleUrl(d))}" target="_blank" rel="noopener">Bei Google suchen</a>
@@ -1927,9 +1939,15 @@ function render(item){
     if (!u){ inp.setCustomValidity("Kein Cardmarket-Link"); inp.reportValidity(); return; }
     inp.setCustomValidity(""); acceptLink(item, extractCardmarket(inp.value) || inp.value.trim().split("?")[0]);
   });
+  item.el.querySelector("[data-detail-accept]")?.addEventListener("click",async()=>{
+    if(d.detailNumberCandidate){d.number=d.detailNumberCandidate;d.numSure=true;}
+    if(d.detailCodeCandidate){d.code=d.detailCodeCandidate;d.codeSure=true;if(findChineseCode(d.code)){d.lang='zh';d.langSure=true;d.printedCode=d.code;}}
+    d.detailNumberCandidate=d.detailCodeCandidate='';d.ocrConflict=false;d.nameTouched=false;d.preferredSetId='';await refreshLookup(item);
+  });
+  item.el.querySelector("[data-detail]")?.addEventListener("click",()=>openDetailPhoto(item));
   item.el.querySelectorAll("[data-f]").forEach(el => el.addEventListener("change", async () => {
     const f = el.dataset.f;
-    if (f === "pick"){ if (el.value === "") return; d.setSure = true; const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; render(item); renderExport(); findCardmarket(item); return; }
+    if (f === "pick"){ if (el.value === "") return; d.setSure = true; const o = d.options[+el.value]; d.name = o.name; d.set = o.set; d.enName = o.enName; d.enSet = o.enSet; d.setId = o.setId; d.nameTouched = true; d.cmPrices = ""; if(typeof CardFacts!=="undefined"){const check=CardFacts.assess(d.printedFacts,o.facts);d.factConflict=!!check.conflicts.length;d.factMessage=check.conflicts.join(" · ");} render(item); renderExport(); findCardmarket(item); return; }
     d[f] = el.value.trim();
     d.artworkRevision=(d.artworkRevision||0)+1;d.artworkChoices=[];d.artworkState="";d.artworkConfirmed="";
     if(f==="enName"&&typeof NameIndex!=="undefined")NameIndex.remember(d.local||d.name,d.lang,d.enName);
@@ -2002,7 +2020,7 @@ function mergeLinks(obj){
 }
 function applyMemory(){
   let n = 0;
-  allCards.forEach(it => { if (!it.data.cmFound){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
+  allCards.forEach(it => { if (!it.data.cmFound && !it.data.factConflict && !it.data.detailMismatch && !it.data.ocrConflict){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
   if (n) renderExport();
   return n;
 }
@@ -2115,6 +2133,65 @@ async function recheckNumber(item){
   }catch{setStatus("Nummer konnte nicht erneut gelesen werden.",true);}
   finally{item.referenceWorking=false;}
 }
+async function readDetailPhoto(item,photo,kind){
+  const d=item.data,revision=(d.detailRevision||0)+1;d.detailRevision=revision;
+  const identity=[d.name,d.number,d.code,d.lang].join('|');
+  const neural=typeof PaddleReader!=="undefined"?await PaddleReader.read(photo):null;
+  const texts=[];
+  for(const raw of [true,false]){const r=await ocrLines(stripOf(photo,0,1,0,1,1600,raw));texts.push(r.text);}
+  if(d.detailRevision!==revision||[d.name,d.number,d.code,d.lang].join('|')!==identity)return;
+  const lines=neural?.lines||[],titleLines=kind==='header'?lines:kind==='footer'?[]:neural?.titles||[];
+  const names=titleLines.map(l=>l.score>=.9?NameIndex.title(l.text):null).filter(Boolean);
+  const known=d.enName||NameIndex.lookup(d.local||d.name,d.lang);
+  const family=s=>NameIndex.speciesOf(s)||s.toLowerCase();
+  if(known&&names.some(n=>family(n.en)!==family(known))){d.detailMismatch=true;d.cmFound=d.cmPrices='';render(item);renderExport();setStatus('Die Detailaufnahme zeigt möglicherweise eine andere Karte. Bitte prüfen.',true);return;}
+  d.detailMismatch=false;
+  if(neural&&typeof CardFacts!=="undefined"){
+    const facts=CardFacts.printed({...neural,titles:titleLines,footer:kind==='footer'?lines:neural.footer,body:kind==='full'?neural.body:[]});
+    const previous=d.printedFacts||{};
+    d.printedFacts={...previous,...facts,hp:facts.hp||previous.hp,artist:facts.artist||previous.artist,bodyText:facts.bodyText||previous.bodyText,damage:facts.damage.length?facts.damage:previous.damage||[]};
+  }
+  const text=texts.join('\n');
+  if(kind!=='header'){
+    const votes=texts.flatMap(t=>findNumbers(t));
+    const consensus=CardEvidence.consensus(votes,n=>{const parts=n.split("/");return parts.length===2&&parseInt(parts[0].replace(/^[A-Z]+/i,""),10)>0&&parseInt(parts[1].replace(/^[A-Z]+/i,""),10)>0;});
+    if(consensus.sure){
+      if(d.numSure&&d.number&&CardEvidence.numberKey(d.number)!==CardEvidence.numberKey(consensus.number)){
+        d.detailNumberCandidate=consensus.number;d.ocrConflict=true;
+      }else{d.number=consensus.number;d.numSure=true;d.ocrConflict=false;d.detailNumberCandidate='';d.nameTouched=false;d.preferredSetId='';}
+    }
+    const codes=texts.map(t=>findChineseCode(t)||findCode(t)).filter(Boolean);
+    if(codes.length===2&&codes[0]===codes[1]){
+      if(d.codeSure&&d.code&&d.code.toLowerCase()!==codes[0].toLowerCase()){d.detailCodeCandidate=codes[0];d.ocrConflict=true;}
+      else{d.code=codes[0];d.codeSure=true;if(findChineseCode(d.code)){d.lang='zh';d.langSure=true;d.printedCode=d.code;}}
+    }
+    d.copyrightYears=[...new Set([...(d.copyrightYears||[]),...CardEvidence.years(text)])].sort((a,b)=>a-b);
+  }
+  d.cmFound=d.cmPrices='';item.detailThumb=photo.toDataURL('image/jpeg',.8);
+  await refreshLookup(item);
+  setStatus('Detailaufnahme ausgewertet. Unklare oder widersprüchliche Angaben sind an der Karte markiert.');
+}
+function openDetailPhoto(item){
+  const input=document.createElement('input');input.type='file';input.accept='image/*';input.setAttribute('capture','environment');
+  input.onchange=async()=>{
+    if(!input.files?.[0])return;
+    let im;try{im=await decode(input.files[0]);}catch{setStatus('Detailfoto konnte nicht geöffnet werden.',true);return;}
+    let photo=scaledCanvas(im,2000).c;
+    const dialog=document.createElement('dialog');dialog.style.cssText='max-width:600px;width:94%;max-height:94vh;overflow:auto;background:var(--card);color:var(--ink);padding:18px;border-radius:14px';
+    dialog.innerHTML='<h2>Detailfoto zu dieser Karte</h2><p>Nur dieselbe Karte verwenden. Den Text in der Vorschau richtig herum drehen.</p><img alt="Private Detailaufnahme" style="width:100%;max-height:45vh;object-fit:contain"><label>Gezeigter Bereich <select data-kind><option value="footer">Unterer Rand: Nummer, Set und Jahr</option><option value="header">Titel und KP</option><option value="full">Vollständige Karte</option></select></label><p><button class="btn" data-turn>Drehen ↻</button> <button class="btn" data-read>Detail auswerten</button> <button class="btn ghost" data-close>Abbrechen</button></p><p role="status" data-state></p>';
+    document.body.append(dialog);const preview=dialog.querySelector('img'),update=()=>{preview.src=photo.toDataURL('image/jpeg',.8);};update();
+    dialog.querySelector('[data-turn]').onclick=()=>{photo=rotate(photo,90);update();};
+    dialog.querySelector('[data-close]').onclick=()=>{dialog.close();dialog.remove();};
+    dialog.addEventListener('cancel',()=>dialog.remove());
+    dialog.querySelector('[data-read]').onclick=async()=>{
+      dialog.querySelectorAll('button,select').forEach(b=>b.disabled=true);dialog.querySelector('[data-state]').textContent='Lese Details lokal …';
+      try{await readDetailPhoto(item,photo,dialog.querySelector('[data-kind]').value);dialog.close();dialog.remove();}catch{dialog.querySelector('[data-state]').textContent='Details konnten nicht gelesen werden. Bitte erneut versuchen.';dialog.querySelectorAll('button,select').forEach(b=>b.disabled=false);}
+    };
+    dialog.showModal();
+  };
+  input.click();
+}
+
 async function openCropEditor(item){
   if(item.referenceWorking)return;
   const source=item.originalThumb || item.thumb,im=await loadImg(source);if(!im)return;
