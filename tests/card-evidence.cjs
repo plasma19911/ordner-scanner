@@ -1,0 +1,43 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const ctx=vm.createContext({Date,AbortSignal,console});
+vm.runInContext(fs.readFileSync('card-evidence.js','utf8'),ctx);const e=ctx.CardEvidence;
+assert.deepEqual(Array.from(e.years('©1995, 1996, 1998 Nintendo\n©1999 Wizards',2026)),[1995,1996,1998,1999]);
+assert.equal(e.years('HP 200 0202/07 2025').length,0);
+assert.equal(e.years('©2099 Nintendo',2026).length,0);
+assert.equal(e.numberKey('００７ / ０８３'),'7/83');
+assert.equal(e.consensus(['007/083','7/83'],()=>true).sure,true);
+assert.equal(e.consensus(['7/83','7/83','8/83','8/83'],()=>true).sure,false);
+assert.equal(e.consensus(['7/83','7/83','8/83','8/83'],()=>true).conflict,true);
+const upright={titles:[{text:'Pikachu',score:.99}],footer:[{text:'©2023 Pokémon',score:.99}]};
+assert.ok(e.orientation(upright,t=>t==='Pikachu')>e.orientation({titles:[],footer:[{text:'10/20',score:.99}]},()=>false));
+const options=[{setId:'old',releaseDate:'2000-02-01'},{setId:'new',releaseDate:'2023-10-01'}];
+const sorted=e.rank(options,{copyrightYears:[1995,2023]});assert.equal(sorted[0].setId,'new');assert.equal(sorted.length,2,'year must not exclude reprints');
+assert.equal(sorted[0].sure,undefined,'year does not prove identity');
+vm.runInContext(fs.readFileSync('name-index.js','utf8'),ctx);ctx.NameIndex.configure([['Pikachu','ピカチュウ','皮卡丘','皮卡丘','Pikachu']]);
+ctx.NameIndex.remember('Professor Forschung','de',"Professor’s Research");
+assert.equal(ctx.NameIndex.title('Professor Forschung KP 100').en,"Professor’s Research");
+assert.equal(ctx.NameIndex.title('ピカチュウ HP 60').en,'Pikachu');
+assert.equal(ctx.NameIndex.title('皮卡丘 HP 60').en,'Pikachu');
+vm.runInContext(fs.readFileSync('card-review.js','utf8'),ctx);
+const rect={cx:100,cy:150,w:100,h:140,angle:0},photo={width:400,height:400};
+assert.equal(ctx.CardReview.canAuto([rect,{...rect,cx:300}],photo),true);
+assert.equal(ctx.CardReview.canAuto([{...rect,inferred:true}],photo),false);
+assert.equal(ctx.CardReview.canAuto([rect,{...rect,cx:110}],photo),false);
+assert.equal(ctx.CardReview.canAuto([{...rect,cx:10}],photo),false);
+assert.equal(ctx.CardReview.canAuto([],photo),false);
+console.log('Footer years, number conflicts, title orientation, multilingual names and automatic crop gates passed');
+(async()=>{
+ const c=vm.createContext({URL,AbortSignal});vm.runInContext(fs.readFileSync('artwork-search.js','utf8'),c);
+ const urls=[];const rows=await c.ArtworkSearch.candidates('博士の研究',async url=>{urls.push(url);return {ok:true,json:async()=>url==='free-artwork-features.json'?{cards:[]}:[{id:'test-1',localId:'1',name:'博士の研究',image:'https://assets.tcgdex.net/ja/sv/test/1'}]};});
+ assert.ok(urls.some(u=>u.includes('/v2/ja/')));assert.equal(rows.length,1);assert.equal(rows[0].artworkOnly,true);
+ console.log('Unknown native trainer titles search regional catalogues without fabricated translations');
+})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{
+ const data=JSON.parse(fs.readFileSync('set-hints.json'));
+ assert.equal(data.sets.length,176);assert.equal(data.sets.filter(s=>s.symbolMask).length,175);
+ for(const s of data.sets.filter(s=>s.symbolMask)){const m=s.symbolMask;assert.equal(Buffer.from(m.bits,'base64').length,Math.ceil(m.width/8)*m.height);}
+ const fetcher=async url=>({ok:true,json:async()=>url==='set-hints.json'?data:{releaseDate:'2001-01-01'}});
+ const en=await e.enrich([{setId:'xy6',enSet:'Roaring Skies'}],'en',fetcher);assert.equal(en[0].releaseDate,'2015-05-06');assert.ok(en[0].symbolMask);
+ const ja=await e.enrich([{setId:'xy6',enSet:'Roaring Skies'}],'ja',fetcher);assert.equal(ja[0].releaseDate,'2001-01-01','regional IDs must not inherit English metadata');
+ console.log('176 set dates and 175 local masks, including regional isolation, validated');
+})().catch(e=>{console.error(e);process.exitCode=1});

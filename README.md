@@ -108,3 +108,18 @@ von zehn öffentlich zugänglichen Referenzen; Quellen und Ausgaben stehen in
 Ausfall der Katalog-API und bei unlesbarem Namen. Vorschauen stammen vom jeweiligen
 Originalanbieter. Ein Artwork-Treffer bestätigt weiterhin keine Holo-Variante oder
 Cardmarket-Ausgabe. Details: `tests/free-sources-validation-2026-10-03.md`.
+
+### Einzelkarten, Ausrichtung und Set-Hinweise
+
+Eindeutige Einzelrahmen laufen automatisch weiter; die Checkbox über dem Upload
+schaltet dies aus. Ergänzte oder unklare Rahmen bleiben im Zuschnitt-Editor.
+Jede Karte wird unabhängig über Titel und Fußzeile ausgerichtet. Widersprüchliche
+Nummernlesungen bleiben unsicher. Auch noch nicht übersetzte japanische/chinesische
+Titel können direkt im jeweiligen Katalog gesucht werden.
+
+`set-hints.json` enthält 176 Set-Datensätze und 175 lokale Symbolvorlagen aus dem
+öffentlichen PokemonTCG-Datensatz (Quelle je Eintrag). Die Copyright-Jahreszahl,
+Katalogdaten und ähnliche Setsymbole helfen beim Sortieren und Vergleichen, ersetzen
+aber nicht die Prüfung von Nummer, Sprache und Druckvariante. Internationale
+Erscheinungsdaten können von regionalen Druckjahren abweichen. Messwerte und Grenzen:
+`tests/evidence-validation-2026-10-04.md`.

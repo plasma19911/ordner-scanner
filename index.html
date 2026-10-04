@@ -141,6 +141,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
     <p>Offizielle Beschreibungen: <a href="https://www.pokemon.cn/tcg/product/15582.html" target="_blank" rel="noopener">Gem Pack 1</a> · <a href="https://www.pokemon.cn/tcg/product/15518.html" target="_blank" rel="noopener">2</a> · <a href="https://www.pokemon.cn/tcg/product/15431.html" target="_blank" rel="noopener">3</a> · <a href="https://www.pokemon.cn/tcg/product/20382.html" target="_blank" rel="noopener">4</a> · <a href="https://www.pokemon.cn/tcg/product/21078.html" target="_blank" rel="noopener">5</a> · <a href="https://www.pokemon.cn/tcg/product/23048.html" target="_blank" rel="noopener">6</a>. Das ist eine Orientierung, kein vollständiger Kartenkatalog.</p>
   </details>
 
+  <label class="hint"><input type="checkbox" id="autoCards" checked> Eindeutig getrennte Karten automatisch verarbeiten</label>
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
     <strong>Fotos hier reinziehen</strong>
     <div class="actions">
@@ -173,6 +174,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 <script src="image-match.js"></script>
 <script src="card-review.js"></script>
+<script src="card-evidence.js"></script>
 <script src="name-index.js"></script>
 <script src="artwork-search.js"></script>
 <script src="paddle-reader.js"></script>
@@ -669,6 +671,12 @@ const LATIN_REGIONS = [[/^galarian\s+/i, "Galarian ", "Galar-"], [/^galar-\s*/i,
   [/^hisuian\s+/i, "Hisuian ", "Hisui-"], [/^hisui-\s*/i, "Hisuian ", "Hisui-"], [/^paldean\s+/i, "Paldean ", "Paldea-"], [/^paldea-\s*/i, "Paldean ", "Paldea-"]];
 function matchLatinName(text, lang){
   if(typeof NameIndex!=="undefined"){
+    const hit=NameIndex.title?.(text,[lang,lang==="de"?"en":"de"]);
+    if(hit){
+      const suffix=(text.match(/\b(VMAX|VSTAR|V-UNION|GX|EX|ex|V)(?=\b|\d)/)||[])[1];
+      const add=suffix&&!hit.en.endsWith(" "+suffix)?" "+suffix:"";
+      return {d:0,sourceLang:hit.lang,en:hit.en+add,de:(hit.lang==="de"?hit.local:hit.en)+add,printed:hit.local+add};
+    }
     for(const language of [lang,lang==="de"?"en":"de"]){
       const en=NameIndex.lookup(text,language);
       if(en)return {d:0,sourceLang:language,en,de:language==="de"?text.trim():en,printed:text.trim()};
@@ -919,7 +927,8 @@ async function processPhoto(file, cv){
   let rects = [];
   if (cv) try { rects = detectRects(cv, small); } catch(e){ console.warn(e); }
   setStatus(`Foto ${n}: Ausschnitte prüfen – genau eine Karte pro Rahmen.`);
-  const reviewed = await CardReview.review(small, rects, {photo:n,extract:r=>extractCard(img,r,s)});
+  const automatic = document.getElementById("autoCards")?.checked && CardReview.canAuto?.(rects,small);
+  const reviewed = automatic ? rects : await CardReview.review(small, rects, {photo:n,extract:r=>extractCard(img,r,s)});
   if (reviewed === null || !reviewed.length){
     sub.textContent = "Übersprungen – keine Karten übernommen";
     const P=progressState;setProgress((P.photo+1)/P.total);return;
@@ -1035,6 +1044,14 @@ async function readSingle(img, list, originalThumb){
 
     }
   }
+  // The copyright line can sit below the collector-number band.
+  if(typeof CardEvidence!=="undefined"&&!CardEvidence.years(best.bottomText).length){
+    for(const raw of [true,false]){
+      const copyright=await ocr(stripOf(best.c,0.955,1,0,1,1800,raw),{tessedit_pageseg_mode:"6"});
+      best.bottomText+="\n"+copyright.text;
+      if(CardEvidence.years(best.bottomText).length)break;
+    }
+  }
   const score = {};
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((x, y) => y[1] - x[1])[0];
@@ -1073,6 +1090,8 @@ function posLabel(r){
   return `Reihe ${r.row + 1}${col ? " " + col : ""}`;
 }
 async function readCard(card, list, pos, originalThumb){
+  if(card.width>card.height)card=rotate(card,90);
+  if(typeof NameIndex!=="undefined")await NameIndex.ready;
   const totals = await getKnownTotals();
   const plausible = num => {
     if (!num) return false;
@@ -1101,6 +1120,18 @@ async function readCard(card, list, pos, originalThumb){
     cand.reliable = reliable;
     cand.deg = deg;
     if (reliable >= 2 && (!best || reliable > best.reliable)) best = cand;
+  }
+  // Independent title + footer positions outrank accidental upside-down digit matches.
+  if(typeof PaddleReader!=="undefined"&&typeof CardEvidence!=="undefined"){
+    for(const cand of tried){
+      cand.neural=await PaddleReader.read(cand.c);
+      cand.orientationScore=CardEvidence.orientation(cand.neural,text=>{
+        const a=matchAsianName(text),l=matchLatinName(text,"en");
+        return a?.d===0||l?.d===0;
+      });
+    }
+    const sorted=tried.slice().sort((a,b)=>b.orientationScore-a.orientationScore);
+    if(sorted[0].orientationScore>=8&&sorted[0].orientationScore>sorted[1].orientationScore)best=sorted[0];
   }
   if (best) photoDegVotes[best.deg]++;
   // ... and if that fails, use the card text (German/English words only read the right way up)
@@ -1171,6 +1202,14 @@ async function readCard(card, list, pos, originalThumb){
       best.bottomText+="\n"+codeRead.text;
     }
   }
+  // The copyright line can sit below the collector-number band.
+  if(typeof CardEvidence!=="undefined"&&!CardEvidence.years(best.bottomText).length){
+    for(const raw of [true,false]){
+      const copyright=await ocr(stripOf(best.c,0.955,1,0,1,1800,raw),{tessedit_pageseg_mode:"6"});
+      best.bottomText+="\n"+copyright.text;
+      if(CardEvidence.years(best.bottomText).length)break;
+    }
+  }
   const score = {};
   best.votes.forEach(v => score[v] = (score[v] || 0) + 1 + (plausible(v) ? 2 : 0));
   const top = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
@@ -1179,6 +1218,11 @@ async function readCard(card, list, pos, originalThumb){
   const okTop = top && plausible(top[0]) && !(smallTotal && score[top[0]] < 6 && !specialNumber(top[0]));
   best.num = okTop ? top[0] : "";
   best.numSure = !!(okTop && best.votes.filter(v => v === top[0]).length >= 2);
+  if(typeof CardEvidence!=="undefined"){
+    const consensus=CardEvidence.consensus(best.votes,plausible);
+    if(consensus.number)best.num=consensus.number;
+    best.numSure=consensus.sure;best.numberConflict=consensus.conflict;
+  }
   const {c} = best;
   const languageText = best.langRes ? best.langRes.text : (await ocr(stripOf(c, 0.5, 0.93, 0, 1, 1400, true), {tessedit_pageseg_mode: "3"})).text;
   const lg = guessLang(languageText + "\n" + (best.bottomText || ""));
@@ -1420,14 +1464,14 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
       }
     }
   }
-  const data = {observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
+  const data = {copyrightYears:typeof CardEvidence!=="undefined"?CardEvidence.years(best.bottomText):[],ocrConflict:!!best.numberConflict,observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
     code: (jaSet && jaSet.code) || code, codeSure: !!printedChineseCode || !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
   if (latin && lg.lang === "de" && latin.de !== latin.en && latin.sourceLang === "de" && latin.d === 0) data.langSure = true;
   if (vintageSet){ data.number = ""; data.code = ""; }
   const item = {pos, originalThumb:opts.originalThumb, open: false, data, thumb: c.toDataURL("image/jpeg", 0.8), strip: (opts.strip || stripOf(c, 0.84, 0.975, 0, 0.66, 900)).toDataURL("image/jpeg", 0.85), el: document.createElement("div")};
   item.el.className = "tile";
   // Independent full-card OCR preserves title and footer positions.
-  let neural = typeof PaddleReader !== "undefined" ? await PaddleReader.read(c) : null;
+  let neural = best.neural || (typeof PaddleReader !== "undefined" ? await PaddleReader.read(c) : null);
   const readTitle = result => {
     for (const line of result?.titles || []){
       const asianName = matchAsianName(line.text);
@@ -1442,17 +1486,23 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
     const reversed=rotate(c,180), retry=await PaddleReader.read(reversed), retryTitle=readTitle(retry);
     if(retryTitle){
       c=reversed;neural=retry;title=retryTitle;
+      Object.assign(data,{number:'',numSure:false,observedNumbers:[],code:'',printedCode:'',codeSure:false,preferredSetId:'',copyrightYears:[],ocrConflict:false});
       item.thumb=c.toDataURL("image/jpeg",0.8);
       item.strip=stripOf(c,0.84,0.975,0,0.66,900).toDataURL("image/jpeg",0.85);
     }
   }
   if (neural){
+    if(typeof CardEvidence!=="undefined")data.copyrightYears=[...new Set([...data.copyrightYears,...CardEvidence.years(neural.footer.map(l=>l.text).join("\n"))])].sort((a,b)=>a-b);
     if (title?.asian){
       const n=title.asian;
       Object.assign(data,{name:n.en||n.local,enName:n.en||"",local:n.local,observedName:"",lang:n.script,langSure:true,preferredSetId:""});
     }else if(title?.latin){
       const n=title.latin, language=n.sourceLang||data.lang;
       Object.assign(data,{name:language==="de"?n.de:n.en,enName:n.en,local:"",observedName:language==="de"?n.de:n.en,lang:language,langSure:n.de!==n.en||data.langSure});
+    }
+    if(!data.name&&!data.local){
+      const native=neural.titles.find(l=>l.score>=.95&&/[\u3040-\u30ff\u3400-\u9fff]/.test(l.text)&&l.text.trim().length>=3&&!/^(?:トレーナー|トレーナーズ|サポート|グッズ|训练家|訓練家|基本|基础|基礎|HP|KP)/i.test(l.text.trim()));
+      if(native){data.local=native.text.trim().replace(/\s*(?:HP|KP)\s*\d+.*$/i,"");data.name=data.local;data.titleUnverified=true;}
     }
     const numberLines=neural.footer.map(line=>({number:findNumber(line.text)||findNumber((line.text.match(/(?<!\d)\d{1,4}\s*\/\s*\d{1,3}(?!\d)/)||[])[0]||""),score:line.score})).filter(line=>line.number&&plausible(line.number));
     const numbers=numberLines.map(line=>line.number);
@@ -1475,13 +1525,17 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
 async function checkArtworks(item,photo,force=false){
   if(typeof ArtworkSearch==="undefined"||typeof NameIndex==="undefined"||item.artworkWorking)return;
   const d=item.data;await NameIndex.ready;
-  const name=d.enName||NameIndex.lookup(d.local||d.name,d.lang);
+  const name=d.enName||NameIndex.lookup(d.local||d.name,d.lang)||d.local||d.name;
   const revision=(d.artworkRevision||0)+1;d.artworkRevision=revision;item.artworkWorking=true;
   d.artworkState=name?"Vergleiche verfügbare Artworks zu "+name+" …":"Name unlesbar – vergleiche mit den mitgelieferten Referenzen …";render(item);
   try{
     const result=await ArtworkSearch.search(photo,name,r=>loadImg(r.image),window.cv);
     if(d.artworkRevision!==revision)return;
     d.artworkChoices=result.list;
+    const first=result.list[0];
+    if(((!d.name&&!d.enName)||d.titleUnverified)&&first?.match?.inliers>=40&&first.match.score>=30&&result.list.every(r=>r.name===first.name)){
+      d.name=d.enName=first.name;d.artworkNameInferred=true;
+    }
     d.artworkState=result.list.length?`${result.total} Referenzbilder aus kostenlosen Quellen gefunden, ${result.compared} näher verglichen. Dies sind Artwork-Kandidaten; die genaue Ausgabe ist noch nicht bestätigt.`:
       "Kein passendes Artwork in den verfügbaren kostenlosen Bildkatalogen. Die Cardmarket-Übersicht kann weitere Ausgaben enthalten.";
   }catch(error){if(d.artworkRevision===revision)d.artworkState=error.message||"Artwork-Suche nicht verfügbar.";}
@@ -1494,7 +1548,15 @@ async function refreshLookup(item){
   const requestedLang = d.lang, requestedNumber = d.number;
   const options = await lookup(requestedLang, requestedNumber);
   if (d.lang !== requestedLang || d.number !== requestedNumber) return;
-  d.options = options;
+  let enriched = typeof CardEvidence!=="undefined" ? await CardEvidence.enrich(options,requestedLang) : options;
+  let symbolHint='';
+  if(typeof CardEvidence!=="undefined"&&enriched.length>1&&item.thumb){
+    const image=await loadImg(item.thumb);
+    if(image)try{symbolHint=await CardEvidence.matchSymbols(image,enriched,loadImg,window.cv);}catch{}
+  }
+  if(typeof CardEvidence!=="undefined")enriched=CardEvidence.rank(enriched,{...d,symbolHint});
+  if(d.lang!==requestedLang||d.number!==requestedNumber)return;
+  d.options=enriched;d.symbolHint=symbolHint;
   if (!d.nameTouched){
     const normalize = x => (x || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
     let matches = d.options;
@@ -1745,6 +1807,10 @@ function render(item){
   else if (!d.number) flags.push("Nummer nicht erkannt – unter „Korrigieren“ eintippen");
   else if (d.ocrConflict) flags.push("OCR-Lesungen widersprechen sich – Nummer prüfen");
   else if (!d.numSure) flags.push("Nummer unsicher – bitte prüfen");
+  if (d.titleUnverified) flags.push("Gedruckter Titel gelesen – Katalogtreffer prüfen");
+  if (d.artworkNameInferred) flags.push("Name über Artwork erkannt – Sprache und Ausgabe prüfen");
+  if (d.symbolHint) flags.push("Ähnliches Setsymbol: "+d.symbolHint+" – bitte prüfen");
+  if (d.copyrightYears?.length) flags.push("Copyright: "+d.copyrightYears.join(", ")+" – Hinweis, keine sichere Set-Zuordnung");
   if (d.printedCode && !d.codeSure) flags.push("Gedruckter Setcode: " + d.printedCode + " – Zuordnung prüfen");
   if (d.referenceState === "matched") flags.push("Per Referenzbild erkannt – Angaben prüfen");
   if (!d.langSure) flags.push("Sprache unsicher – bitte prüfen");
@@ -1771,6 +1837,7 @@ function render(item){
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
     <div class="meta">${esc(d.vintageSet || setLabel(d))} · ${esc(d.number || (d.dexNo ? "No. " + d.dexNo : "Nr. ?"))} · ${LANGS[d.lang]}</div>
     ${d.local ? `<div class="meta">Auf der Karte: ${esc(d.local)}</div>` : ""}
+    ${d.options?.some(o=>o.symbolPreview||o.symbol||o.releaseDate)?`<details><summary>Setsymbole und Erscheinungsjahre vergleichen</summary><div class="picks">${d.options.map(o=>`<div class="pick">${o.symbolPreview||o.symbol?`<img src="${esc(o.symbolPreview||(o.symbol+".webp"))}" alt="Setsymbol ${esc(o.set)}" loading="lazy" onerror="this.hidden=true" style="width:48px;height:48px;object-fit:contain">`:""}<span>${esc(o.set)} · ${esc(o.releaseDate||"Jahr unbekannt")}${o.yearHint?" · Jahreszahl passt ungefähr":""}</span></div>`).join("")}</div></details>`:""}
     ${flags.length ? `<div class="flag">${flags.join(" · ")}</div>` : ""}
     ${!d.number && d.picks && d.picks.length ? `<div class="picks">${d.picks.map((pk, i) => `<button type="button" class="pick" data-pick="${i}">${pk.image ? `<img src="${esc(pk.image)}/low.webp" alt="" loading="lazy">` : ""}<span>${esc(pk.setName)}<br>${esc(numberOf(pk))}</span></button>`).join("")}</div>` : ""}
     ${d.referenceChoices?.length ? `<div class="hint">Kein eindeutiger Treffer. Vergleiche Sprache, Nummer und Set:</div><div class="picks">${d.referenceChoices.map((r,i)=>`<button type="button" class="pick" data-reference-pick="${i}"><img src="${esc(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`)}" alt="${esc(r.name)}" loading="lazy"><span>${esc(r.name)} · ${LANGS[r.lang]}<br>${esc(r.set)}<br>${esc(r.number || "Alte Karte ohne Sammlernummer")}</span></button>`).join("")}</div>` : ""}
