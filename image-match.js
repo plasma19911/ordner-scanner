@@ -64,7 +64,10 @@
   function certain(list, unknownTitle=false) {
     const a=list[0],b=list[1];if(!a?.match)return false;
     const m=a.match;
-    return m.inliers>=(unknownTitle?40:24) && m.ratio>=(unknownTitle ? .65 : .5) && m.coverage>=.06 && (m.artworkInliers===undefined || m.artworkInliers>=8) &&
+    // Flat shiny artwork can have few keypoints. A matching printed number may
+    // support it only with a much stronger match across the complete card.
+    const numbered=!!a.numberEvidence && m.artworkInliers>=4 && m.inliers>=150 && m.ratio>=.7 && m.coverage>=.3;
+    return m.inliers>=(unknownTitle?40:24) && m.ratio>=(unknownTitle ? .65 : .5) && m.coverage>=.06 && (m.artworkInliers===undefined || m.artworkInliers>=8 || numbered) &&
       (!b?.match || m.score-b.match.score>=8 && m.score>=b.match.score*1.25);
   }
   // Reference descriptors are computed once per session (the same references are compared for every card).

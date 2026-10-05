@@ -31,6 +31,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
   const good={match:{inliers:80,ratio:.85,coverage:.5,score:80}},badge={match:{inliers:80,ratio:.85,coverage:.02,score:7}};
   assert.equal(ctx.CardMatcher.certain([good]),true);assert.equal(ctx.CardMatcher.certain([{match:{...good.match,artworkInliers:2}}]),false);assert.equal(ctx.CardMatcher.certain([badge]),false);
   assert.equal(ctx.CardMatcher.certain([good,{match:{...good.match,score:76}}]),false);
+  const flat={numberEvidence:true,match:{inliers:267,ratio:.75,coverage:.5,score:267,artworkInliers:6}};
+  assert.equal(ctx.CardMatcher.certain([flat]),true);
+  assert.equal(ctx.CardMatcher.certain([{...flat,numberEvidence:false}]),false);
+  assert.equal(ctx.CardMatcher.certain([{...flat,match:{...flat.match,artworkInliers:0}}]),false);
+  assert.equal(ctx.CardMatcher.certain([{...flat,match:{...flat.match,inliers:80}}]),false);
+  assert.equal(ctx.CardMatcher.certain([flat,{match:{...flat.match,score:260}}]),false);
   vm.runInContext(html.slice(html.indexOf('function cardKey('),html.indexOf('function memGet(')),ctx);
   vm.runInContext(html.slice(html.indexOf('function gemPackIdentity'),html.indexOf('async function findCardmarket')),ctx);
   vm.runInContext(html.slice(html.indexOf('async function findCardmarket('),html.indexOf('function cmLink(')),ctx);

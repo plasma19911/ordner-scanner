@@ -1,0 +1,1262 @@
+{
+  "date": "2026-10-05",
+  "total": 57,
+  "automaticLinks": 40,
+  "variantReview": 9,
+  "rows": [
+    {
+      "file": "IMG_20261001_160733(1).jpg-1.jpg",
+      "expected": {
+        "name": "Chimchar Lv.8",
+        "number": "",
+        "set": "Space-Time Creation",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Space-Time-Creation/Chimchar-Lv8-DP1",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Chimchar",
+        "number": "",
+        "set": "",
+        "language": "ja",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-2.jpg",
+      "expected": {
+        "name": "Chimchar Lv.8",
+        "number": "",
+        "set": "Space-Time Creation",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Space-Time-Creation/Chimchar-Lv8-DP1",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Chimchar",
+        "number": "",
+        "set": "",
+        "language": "ja",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-3.jpg",
+      "expected": {
+        "name": "Fuecoco",
+        "number": "0304/09",
+        "set": "Gem Pack Vol. 1",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V4-CBB1C03",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Fuecoco",
+        "number": "0304/09",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-4.jpg",
+      "expected": {
+        "name": "Krokel",
+        "number": "SVP192",
+        "set": "SV Black Star Promos",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SV-Black-Star-Promos/Fuecoco-SVP192",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Krokel",
+        "number": "",
+        "set": "",
+        "language": "de",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-5.jpg",
+      "expected": {
+        "name": "Crocalor",
+        "number": "0402/08",
+        "set": "Gem Pack Vol. 1",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V2-CBB1C04",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Crocalor",
+        "number": "0402/08",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-6.jpg",
+      "expected": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-7.jpg",
+      "expected": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160733(1).jpg-8.jpg",
+      "expected": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Scorbunny",
+        "number": "SWSH244",
+        "set": "SWSH Black Star Promos",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SWSH-Black-Star-Promos/Scorbunny-SWSH244",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-1.jpg",
+      "expected": {
+        "name": "Cyndaquil",
+        "number": "014/070",
+        "set": "SoulSilver Collection",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SoulSilver-Collection/Cyndaquil-L1SS014",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Cyndaquil",
+        "number": "014/070",
+        "set": "SoulSilver Collection",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SoulSilver-Collection/Cyndaquil-L1SS014",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-2.jpg",
+      "expected": {
+        "name": "Volcarona",
+        "number": "013/101",
+        "set": "Plasma Blast",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Plasma-Blast/Volcarona-PLB13",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Volcarona",
+        "number": "013/101",
+        "set": "Plasma Blast",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Plasma-Blast/Volcarona-PLB13",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-3.jpg",
+      "expected": {
+        "name": "Eisenfalter",
+        "number": "028/182",
+        "set": "Paradoxrift – Setstempel",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paradox-Rift/Iron-Moth-V6-PAR028",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Eisenfalter",
+        "number": "028/182",
+        "set": "Paradoxrift",
+        "language": "de",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-4.jpg",
+      "expected": {
+        "name": "Eisenfalter",
+        "number": "028/182",
+        "set": "Paradoxrift – Setstempel",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paradox-Rift/Iron-Moth-V6-PAR028",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Eisenfalter",
+        "number": "028/182",
+        "set": "Paradoxrift",
+        "language": "de",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-5.jpg",
+      "expected": {
+        "name": "Magby Lv.5",
+        "number": "",
+        "set": "Secret of the Lakes",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Secret-of-the-Lakes/Magby-Lv5-DP2",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Magby",
+        "number": "",
+        "set": "",
+        "language": "de",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": false,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-6.jpg",
+      "expected": {
+        "name": "Magby",
+        "number": "012/080",
+        "set": "Clash at the Summit",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Clash-at-the-Summit/Magby-L3012",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Magby",
+        "number": "012/080",
+        "set": "Clash at the Summit",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Clash-at-the-Summit/Magby-L3012",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-7.jpg",
+      "expected": {
+        "name": "Magby Lv.5",
+        "number": "",
+        "set": "Bastiodon the Defender",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Bastiodon-the-Defender/Magby-Lv5-BtD",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Magby",
+        "number": "",
+        "set": "",
+        "language": "ja",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    },
+    {
+      "file": "IMG_20261001_160736(1).jpg-8.jpg",
+      "expected": {
+        "name": "Magmar",
+        "number": "017/100",
+        "set": "Beat of the Frontier",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Beat-of-the-Frontier/Magmar-Lv28-Pt3017",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Magmar",
+        "number": "017/100",
+        "set": "Beat of the Frontier",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Beat-of-the-Frontier/Magmar-Lv28-Pt3017",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-1.jpg",
+      "expected": {
+        "name": "Entei",
+        "number": "021/159",
+        "set": "Crown Zenith",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-CRZ021",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Entei",
+        "number": "021/159",
+        "set": "Crown Zenith",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-CRZ021",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-2.jpg",
+      "expected": {
+        "name": "Entei",
+        "number": "021/159",
+        "set": "Crown Zenith",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-CRZ021",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Entei",
+        "number": "021/159",
+        "set": "Crown Zenith",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Crown-Zenith/Entei-CRZ021",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-3.jpg",
+      "expected": {
+        "name": "Ninetales",
+        "number": "013/070",
+        "set": "VMAX Rising",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/VMAX-Rising/Ninetales-s1a13",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ninetales",
+        "number": "013/070",
+        "set": "VMAX Rising",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/VMAX-Rising/Ninetales-s1a13",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-4.jpg",
+      "expected": {
+        "name": "Vulnona",
+        "number": "019/124",
+        "set": "Hoheit der Drachen",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Dragons-Exalted/Ninetales-DRX19",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Vulnona",
+        "number": "019/124",
+        "set": "Hoheit der Drachen",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Dragons-Exalted/Ninetales-DRX19",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-5.jpg",
+      "expected": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-6.jpg",
+      "expected": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-7.jpg",
+      "expected": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160739(1).jpg-8.jpg",
+      "expected": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ponyta",
+        "number": "018/090",
+        "set": "Advent of Arceus",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Advent-of-Arceus/Ponyta-Lv8-Pt4018",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-1.jpg",
+      "expected": {
+        "name": "Zeraora",
+        "number": "050/173",
+        "set": "Tag All Stars",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Tag-All-Stars/Zeraora",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Zeraora",
+        "number": "050/173",
+        "set": "",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Tag-All-Stars/Zeraora",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-2.jpg",
+      "expected": {
+        "name": "Zeraora",
+        "number": "050/173",
+        "set": "Tag All Stars",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Tag-All-Stars/Zeraora",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Zeraora",
+        "number": "050/173",
+        "set": "",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Tag-All-Stars/Zeraora",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-3.jpg",
+      "expected": {
+        "name": "Voltobal",
+        "number": "113/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Voltorb-SK113",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Voltobal",
+        "number": "113/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Voltorb-SK113",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-4.jpg",
+      "expected": {
+        "name": "Voltobal",
+        "number": "113/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Voltorb-SK113",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Voltobal",
+        "number": "113/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Voltorb-SK113",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-5.jpg",
+      "expected": {
+        "name": "Lektrobal",
+        "number": "036/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Electrode-SK36",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Lektrobal",
+        "number": "036/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Electrode-SK36",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160748(1).jpg-6.jpg",
+      "expected": {
+        "name": "Lektrobal",
+        "number": "036/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Electrode-SK36",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Lektrobal",
+        "number": "036/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Electrode-SK36",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160750(1).jpg-1.jpg",
+      "expected": {
+        "name": "Captain Pikachu",
+        "number": "0701/09",
+        "set": "Gem Pack Vol. 1",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V1-CBB1C07",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Pikachu",
+        "number": "0701/09",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160750(1).jpg-2.jpg",
+      "expected": {
+        "name": "Captain Pikachu",
+        "number": "0701/09",
+        "set": "Gem Pack Vol. 1",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V1-CBB1C07",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Pikachu",
+        "number": "0701/09",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160750(1).jpg-3.jpg",
+      "expected": {
+        "name": "Captain Pikachu",
+        "number": "0704/09",
+        "set": "Gem Pack Vol. 1",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V4-CBB1C07",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Pikachu",
+        "number": "0704/09",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-1.jpg",
+      "expected": {
+        "name": "Dodu",
+        "number": "055/083",
+        "set": "Generationen",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Generations/Doduo-GEN55",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Dodu",
+        "number": "055/083",
+        "set": "Generationen",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Generations/Doduo-GEN55",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-2.jpg",
+      "expected": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-3.jpg",
+      "expected": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-4.jpg",
+      "expected": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Lugia",
+        "number": "140/189",
+        "set": "Darkness Ablaze",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-5.jpg",
+      "expected": {
+        "name": "Unfezant",
+        "number": "081/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Unfezant-ROS81",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Unfezant",
+        "number": "081/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Unfezant-ROS81",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-6.jpg",
+      "expected": {
+        "name": "Unfezant",
+        "number": "081/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Unfezant-ROS81",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Unfezant",
+        "number": "081/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Unfezant-ROS81",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160757(1).jpg-7.jpg",
+      "expected": {
+        "name": "Swellow",
+        "number": "072/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Swellow-ROS72",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Swellow",
+        "number": "072/108",
+        "set": "Roaring Skies",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Roaring-Skies/Swellow-ROS72",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-1.jpg",
+      "expected": {
+        "name": "Meowth",
+        "number": "0202/07",
+        "set": "Gem Pack Vol. 3",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V2-CBB3C02",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Meowth",
+        "number": "0202/07",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-2.jpg",
+      "expected": {
+        "name": "Meowth",
+        "number": "0202/07",
+        "set": "Gem Pack Vol. 3",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V2-CBB3C02",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Meowth",
+        "number": "0202/07",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-3.jpg",
+      "expected": {
+        "name": "Meowth",
+        "number": "0203/07",
+        "set": "Gem Pack Vol. 3",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V3-CBB3C02",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Meowth",
+        "number": "0203/07",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-4.jpg",
+      "expected": {
+        "name": "Meowth",
+        "number": "0204/07",
+        "set": "Gem Pack Vol. 3",
+        "language": "zh",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V4-CBB3C02",
+        "variantPending": true
+      },
+      "automatic": {
+        "name": "Meowth",
+        "number": "0204/07",
+        "set": "",
+        "language": "zh",
+        "productUrl": "",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "variant_review"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-5.jpg",
+      "expected": {
+        "name": "Teddiursa",
+        "number": "109/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Teddiursa",
+        "number": "109/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-6.jpg",
+      "expected": {
+        "name": "Teddiursa",
+        "number": "109/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Teddiursa",
+        "number": "109/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-7.jpg",
+      "expected": {
+        "name": "Ursaring",
+        "number": "110/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Ursaring-SK110",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ursaring",
+        "number": "110/144",
+        "set": "Skyridge",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Ursaring-SK110",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "IMG_20261001_160802(1).jpg-8.jpg",
+      "expected": {
+        "name": "Ursaring",
+        "number": "172/236",
+        "set": "Cosmic Eclipse",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Cosmic-Eclipse/Ursaring-CEC172",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Ursaring",
+        "number": "172/236",
+        "set": "Cosmic Eclipse",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Cosmic-Eclipse/Ursaring-CEC172",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-1.jpg",
+      "expected": {
+        "name": "Dedenne",
+        "number": "250/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Dedenne-V2-s4a250",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Dedenne",
+        "number": "250/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Dedenne-V2-s4a250",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-2.jpg",
+      "expected": {
+        "name": "Dedenne",
+        "number": "250/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Dedenne-V2-s4a250",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Dedenne",
+        "number": "250/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Dedenne-V2-s4a250",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-3.jpg",
+      "expected": {
+        "name": "Drifblim",
+        "number": "261/190",
+        "set": "Shiny Treasure ex",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Treasure-ex/Drifblim-V2-sv4a261",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Drifblim",
+        "number": "261/190",
+        "set": "Shiny Treasure ex",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Treasure-ex/Drifblim-V2-sv4a261",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-4.jpg",
+      "expected": {
+        "name": "Natu",
+        "number": "151/091",
+        "set": "Paldean Fates",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paldean-Fates/Natu-V2-PAF151",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Natu",
+        "number": "151/091",
+        "set": "Paldean Fates",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Paldean-Fates/Natu-V2-PAF151",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-5.jpg",
+      "expected": {
+        "name": "Tinkaton",
+        "number": "273/190",
+        "set": "Shiny Treasure ex",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Treasure-ex/Tinkaton-V2-sv4a273",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Tinkaton",
+        "number": "273/190",
+        "set": "Shiny Treasure ex",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Treasure-ex/Tinkaton-V2-sv4a273",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-6.jpg",
+      "expected": {
+        "name": "Galarian Corsola",
+        "number": "248/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Galarian-Corsola-V2-s4a248",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Galarian Corsola",
+        "number": "248/190",
+        "set": "Shiny Star V",
+        "language": "ja",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shiny-Star-V/Galarian-Corsola-V2-s4a248",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-7.jpg",
+      "expected": {
+        "name": "Galar-Ponita",
+        "number": "SV047/SV122",
+        "set": "Glänzendes Schicksal Glitzer-Tresor",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Ponyta",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Galar-Ponita",
+        "number": "SV047/SV122",
+        "set": "Glänzendes Schicksal Glitzer-Tresor",
+        "language": "de",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Ponyta",
+        "numberCertain": true,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-8.jpg",
+      "expected": {
+        "name": "Galarian Ponyta",
+        "number": "SV047/SV122",
+        "set": "Shining Fates Shiny Vault",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Ponyta",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Galarian Ponyta",
+        "number": "SV047/SV122",
+        "set": "Shining Fates Shiny Vault",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Ponyta",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "automatic_link"
+    },
+    {
+      "file": "WhatsApp Image 2026-09-30 at 17.35.03.jpeg-9.jpg",
+      "expected": {
+        "name": "Galarian Rapidash",
+        "number": "SV048/SV122",
+        "set": "Shining Fates",
+        "language": "en",
+        "productUrl": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Shining-Fates/Galarian-Rapidash-SHFSV48",
+        "variantPending": false
+      },
+      "automatic": {
+        "name": "Galarian Rapidash",
+        "number": "",
+        "set": "",
+        "language": "en",
+        "productUrl": "",
+        "numberCertain": false,
+        "languageCertain": true,
+        "ocrConflict": false
+      },
+      "status": "manual_identification"
+    }
+  ]
+}

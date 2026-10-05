@@ -36,7 +36,9 @@ Promo-Nummern und chinesische Holo-Varianten. Eine sichere Komplettzuordnung
 aller 57 Karten zu Cardmarket wurde nicht erreicht.
 
 Bekannte Grenze: Eine Kapitän-Pikachu-Lesung ergibt trotz hoher Modellkonfidenz
-0701/09; der bisherige Fotoabgleich erwartete 0702/09. Modellkonfidenz ist kein
+0701/09; der damalige Fotoabgleich erwartete fälschlich 0702/09.
+Korrektur vom 05.10.: Beide ersten Kapitän-Pikachu-Fotos zeigen gedruckt 0701/09.
+Die damalige Sollnummer war falsch, nicht diese OCR-Lesung. Modellkonfidenz ist kein
 Beweis. Widersprechende sichere Lesungen sperren deshalb automatische Produktlinks.
 Chinesische Gem-Pack-Varianten erfordern weiterhin die Bestätigung des Drucks
 und der Holo-Variante. Die App verspricht keine vollständige Cardmarket-Abdeckung.

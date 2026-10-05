@@ -9,6 +9,13 @@
   const damage=(result?.body||[]).filter(l=>l.score>=.95&&result.width&&Math.min(...l.poly.map(p=>p[0]))>=result.width*.7&&/^\d{1,3}[+×x]?$/i.test(l.text.trim())).map(l=>l.text.trim().replace(/x/i,'×'));
   return {hp:hp.length===1?hp[0]:null,hpConflict:hp.length>1,artist:artist.length===1?artist[0]:'',damage:unique(damage),bodyText:(result?.body||[]).filter(l=>l.score>=.9).map(l=>l.text).join('\n')};
  }
+ function language(result){
+  const text=(result?.lines||[]).filter(l=>l.score>=.85).map(l=>l.text).join(' ').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const count=words=>words.filter(w=>new RegExp('\\b'+w+'\\b').test(text)).length;
+  const de=count(['deines','deinem','gegners','schadenspunkte','schadensmarken','schwache','resistenz','angriff']);
+  const en=count(['your','opponent','damage','weakness','resistance','retreat','discard','heal']);
+  return de>=3&&de>=en+2?'de':en>=3&&en>=de+2?'en':'';
+ }
  function catalogue(card){return {hp:Number(card?.hp)||null,artist:card?.illustrator||'',attacks:(card?.attacks||[]).map(a=>({name:a.name||'',damage:String(a.damage??''),cost:a.cost||[]})),regulationMark:card?.regulationMark||'',category:card?.category||''};}
  function assess(observed,reference){
   if(!observed||!reference)return {score:0,conflicts:[],matches:[]};
@@ -40,5 +47,5 @@
   if(d.enName)links.push({label:'Englische Vergleichskarten bei PkmnCards',url:'https://pkmncards.com/?s='+encodeURIComponent(query)});
   return links;
  }
- root.CardFacts={printed,catalogue,assess,rank,guidance,links};
+ root.CardFacts={printed,language,catalogue,assess,rank,guidance,links};
 })(globalThis);
