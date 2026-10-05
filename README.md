@@ -123,3 +123,33 @@ Katalogdaten und ähnliche Setsymbole helfen beim Sortieren und Vergleichen, ers
 aber nicht die Prüfung von Nummer, Sprache und Druckvariante. Internationale
 Erscheinungsdaten können von regionalen Druckjahren abweichen. Messwerte und Grenzen:
 `tests/evidence-validation-2026-10-04.md`.
+
+## Vollständige Linkprüfung (05.10.2026)
+
+Die [aktuelle Fotoprüfung mit allen 57 Produktlinks und Kandidaten](tests/photo-validation-2026-10-05.md)
+trennt automatische Treffer, manuell zugeordnete Karten und ungeklärte chinesische
+Holo-Varianten. Sie ersetzt die fehlerhafte frühere Sollnummer 0702/09 beim zweiten
+Captain Pikachu: Auch dort ist 0701/09 gedruckt.
+
+Unklare Nummern erhalten zusätzliche vergrößerte Fußzeilen-Lesungen. Zusammengezogene
+SV-/GG-/TG-/RC-Nummern werden normalisiert. Deutsche und englische Kartentexte helfen
+bei bisher unklarer Sprache. Regionalformen werden für japanische Suchanfragen
+sprachlich vereinheitlicht. Eine Nummer kann einen sehr starken Bildtreffer bei
+flächigem Artwork stützen; widersprechende Nummern und reine Rahmenähnlichkeit
+bleiben ausgeschlossen. Dafür werden keine kostenpflichtigen Dienste oder neuen
+Konten benötigt.
+
+Die Suchreihenfolge gilt allgemein, unabhängig von den Beispielkarten: zuerst
+**Sammlernummer vor dem Schrägstrich + englischer Setname**, ersatzweise
+**englischer Kartenname + Setname**. Der vollständige Nummernaufdruck bleibt für
+den Identitätsabgleich erhalten. Gem-Pack-Drucknummern und DPBP-Speziesnummern
+werden nicht wie normale Sammlernummern behandelt. Fehlt der englische Setname,
+bleibt der bekannte Setname bzw. Setcode als Suchhilfe erhalten; eine Übersetzung
+oder ausländische Setgleichheit wird nicht erfunden.
+
+Google-Suchen heißen ausdrücklich „Nummer + Set bei Google suchen“ bzw.
+„Name + Set bei Google suchen“. Die Anfrage enthält nur die Begriffe und
+„Cardmarket“, ohne `site:`-Operator, Nenner oder zusätzlichen Sprachfilter.
+„Auf Cardmarket öffnen“ bleibt ausschließlich eine direkte Produktseite.
+Die beiden Suchwege werden getrennt angeboten, statt beide gleichzeitig in eine
+übermäßig eingeschränkte Google-Anfrage zu packen.

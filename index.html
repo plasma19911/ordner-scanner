@@ -473,7 +473,7 @@ function cleanPart(s){
   return m[1] + m[2].replace(/O/g, "0").replace(/[IL|]/g, "1");
 }
 function normalizePrintedNumberText(text){
-  return String(text || "").normalize("NFKC").replace(/\b(\d{2})[ \t]+(\d{2})\s*\/\s*(\d{2})(?!\d)/g,(all,card,variant,total)=>
+  return String(text || "").normalize("NFKC").replace(/\b[O0]?(SV|GG|TG|RC)(\d{1,3})\s*\1(\d{1,3})\b/gi,(all,prefix,number,total)=>prefix.toUpperCase()+number+"/"+prefix.toUpperCase()+total).replace(/\b(\d{2})[ \t]+(\d{2})\s*\/\s*(\d{2})(?!\d)/g,(all,card,variant,total)=>
     +card>0 && +variant>0 && +variant<=+total && +total<20 ? card+variant+"/"+total : all);
 }
 function findNumbers(text){
@@ -501,7 +501,7 @@ function specialNumber(num){
   return !!(m && +m[1] > 0 && +m[2] > 0 && +m[2] <= +m[3]);
 }
 function findChineseCode(text){
-  const t=String(text || "").normalize("NFKC").toUpperCase();
+  const t=String(text || "").normalize("NFKC").toUpperCase().replace(/\bC([B8])([B8])([1-9])C\b/g,"CBB$3C");
   const spaced=t.match(/\bC\s*(BB|SM|SV|S|M)\s*(\d{1,2}(?:\.\d)?[A-Z]?)\s*C\b/);
   return spaced ? "C"+spaced[1]+spaced[2]+"C" : (t.match(/\bC(?:BB|SM|SV|S|M)[A-Z0-9.]{1,5}C\b/) || [""])[0];
 }
@@ -779,8 +779,11 @@ function numberOf(c){
 
 /* ---------- card lookup (TCGdex, free and open) ---------- */
 const setsCache = {};
+function regionalSetName(lang,id,fallback){
+  return lang==='ja'?({s4a:'Shiny Star V',sv4a:'Shiny Treasure ex',sm12a:'Tag All Stars'}[String(id||'').toLowerCase()] || fallback):fallback;
+}
 function getSets(lang){
-  if (!setsCache[lang]) setsCache[lang] = fetch(`https://api.tcgdex.net/v2/${lang}/sets`).then(r => r.json()).catch(() => []);
+  if (!setsCache[lang]) setsCache[lang] = fetch(`https://api.tcgdex.net/v2/${lang}/sets`).then(r => r.json()).then(sets=>sets.map(s=>({...s,name:regionalSetName(lang,s.id,s.name)}))).catch(() => []);
   return setsCache[lang];
 }
 async function lookup(lang, number){
@@ -1265,6 +1268,12 @@ function referenceCompatible(d, r){
   if (d.codeSure && d.code && String(d.code).toLowerCase() !== String(r.code || r.setId || "").toLowerCase()) return false;
   return true;
 }
+function referenceNumberEvidence(d,r){
+  if(!d.langSure || d.ocrConflict || !d.number || !r.number || typeof CardEvidence==='undefined')return false;
+  const key=CardEvidence.numberKey(d.number);
+  const observed=new Set((d.observedNumbers||[]).map(CardEvidence.numberKey));
+  return observed.size===1 && observed.has(key) && key===CardEvidence.numberKey(r.number);
+}
 async function referenceMetadata(ref){
   if (ref.lang === "ja"){
     const setId = ref.slug.slice(0, ref.slug.lastIndexOf("-"));
@@ -1289,20 +1298,22 @@ async function referenceMetadata(ref){
   return {...ref,setId:st.id,number:numberOf({localId:local,official:st.cardCount.official}),code:"",vintageSet:""};
 }
 function japaneseFor(english){
-  const wanted=referenceNormalize(referenceFamily(english));
+  const family=referenceFamily(english);
+  const region=REGIONS.slice(0,4).find(([,en])=>family.toLowerCase().startsWith(en.toLowerCase()));
+  const wanted=referenceNormalize(region?family.slice(region[1].length):family);
   const row=NAMES.find(r=>referenceNormalize(r[0])===wanted);
-  return row ? row[1] : "";
+  return row ? (region?region[0]:"")+row[1] : "";
 }
 const JAPANESE_REFERENCE_CACHE = new Map();
 async function japaneseReferenceCandidates(local){
   if(!local) return [];
   if(!JAPANESE_REFERENCE_CACHE.has(local)) JAPANESE_REFERENCE_CACHE.set(local,(async()=>{
-    const list=await fetch(`https://api.tcgdex.net/v2/ja/cards?name=like:${encodeURIComponent(local)}`, {signal:AbortSignal.timeout(12000)}).then(r=>r.ok?r.json():[]);
+    const list=await fetch(`https://api.tcgdex.net/v2/ja/cards?name=like:${encodeURIComponent(local.replace(/^(ガラル|アローラ|ヒスイ|パルデア)\s*/,""))}`, {signal:AbortSignal.timeout(12000)}).then(r=>r.ok?r.json():[]);
     // Never select a winner from a silently truncated large result set.
     if(!Array.isArray(list) || list.length>120) return [];
     const sets=await getSets("ja"), result=[];let next=0;
     const task=async()=>{while(next<list.length){const row=list[next++];
-      if(!row.id || !row.name?.includes(local)) continue;
+      if(!row.id || !row.name?.replace(/\s/g,"").includes(local.replace(/\s/g,""))) continue;
       try {
         const card=await fetch(`https://api.tcgdex.net/v2/ja/cards/${encodeURIComponent(row.id)}`, {signal:AbortSignal.timeout(12000)}).then(r=>r.ok?r.json():null);
         const st=sets.find(s=>s.id===card?.set?.id);
@@ -1364,15 +1375,15 @@ async function applyReferenceMatch(item, photo, force=false){
       }
     }
     if (family && (d.lang === "ja" || !d.langSure))
-      candidates.push(...await japaneseReferenceCandidates(d.local || japaneseFor(family)));
-    let ranked = await CardMatcher.rank(photo,candidates.filter(r=>referenceCompatible(d,r)),r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
+      candidates.push(...await japaneseReferenceCandidates(japaneseFor(family) || d.local));
+    let ranked = await CardMatcher.rank(photo,candidates.filter(r=>referenceCompatible(d,r)).map(r=>({...r,numberEvidence:referenceNumberEvidence(d,r)})),r => loadImg(r.directImage ? r.image : `api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,unknown);
     if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     if (!ranked.sure && family){
       // A bad OCR title must not prevent a strong image match against another Pokémon.
       const fallback=(await Promise.all((await staticReferences()).filter(r=>r.cachedImage &&
         (!d.langSure || r.lang===d.lang)).map(r=>referenceMetadataCached({...r,image:r.cachedImage,directImage:true})))).filter(Boolean);
       const combined=[...new Map([...candidates,...fallback].map(r=>[r.source,r])).values()];
-      ranked=await CardMatcher.rank(photo,combined.filter(r=>referenceCompatible(d,r)),r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
+      ranked=await CardMatcher.rank(photo,combined.filter(r=>referenceCompatible(d,r)).map(r=>({...r,numberEvidence:referenceNumberEvidence(d,r)})),r=>loadImg(r.directImage?r.image:`api/reference-image?url=${encodeURIComponent(r.image)}`),window.cv,true);
       if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     }
     if (!ranked.sure){
@@ -1394,6 +1405,33 @@ async function applyReferenceMatch(item, photo, force=false){
       preferredSetId:r.setId,code:r.code,codeSure:!!r.code,lang:r.lang,langSure:r.lang === "ja" || (d.langSure && d.lang === r.lang),setSure:true,
       referenceChoices:[],numSure:!!r.number,nameTouched:true,vintageSet:r.vintageSet,referenceSource:r.source,referenceState:"matched"});
   } catch {d.referenceState = "unavailable";}
+}
+
+async function recoverPrintedFooter(photo,d,plausible){
+  if(typeof PaddleReader==='undefined'||typeof CardEvidence==='undefined')return;
+  const votes=[],codes=[];
+  for(const [width,top] of [[1200,.83],[1800,.83],[1500,.88]]){
+    const strip=stripOf(photo,top,1,.01,.99,width,true);
+    const result=await PaddleReader.read(strip);
+    const text=(result?.lines||[]).filter(l=>l.score>=.85).map(l=>l.text).join('\n');
+    votes.push(...new Set(findNumbers(text)));codes.push(findChineseCode(text));
+  }
+  // A second OCR engine checks the enlarged footer independently.
+  for(const raw of [true,false]){
+    const r=await ocrLines(stripOf(photo,.83,1,.01,.99,1600,raw));
+    votes.push(...new Set(findNumbers(r.text)));codes.push(findChineseCode(r.text));
+  }
+  const result=CardEvidence.consensus(votes,plausible);
+  d.footerRetry={numbers:votes,codes:codes.filter(Boolean)};
+  if(result.sure){
+    if(d.numSure&&d.number&&CardEvidence.numberKey(d.number)!==CardEvidence.numberKey(result.number))d.ocrConflict=true;
+    else{d.number=result.number;d.numSure=true;d.ocrConflict=false;d.observedNumbers.push(...votes);}
+  }
+  const nonempty=codes.filter(Boolean),unique=[...new Set(nonempty)];
+  if(unique.length===1&&nonempty.length>=2){
+    if(d.codeSure&&d.code&&d.code.toUpperCase()!==unique[0])d.ocrConflict=true;
+    else{d.code=d.printedCode=unique[0];d.codeSure=true;d.lang='zh';d.langSure=true;}
+  }
 }
 
 async function finishCard(c, list, pos, best, lg, code, plausible, opts){
@@ -1518,6 +1556,8 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
     const codes=neural.footer.filter(line=>line.score>=0.9).map(line=>findChineseCode(line.text)).filter(Boolean);
     if(data.lang==="zh"&&new Set(codes).size===1){data.code=codes[0];data.printedCode=codes[0];data.codeSure=true;}
   }
+  if(!data.langSure&&typeof CardFacts!=="undefined"){const detected=CardFacts.language(neural);if(detected){data.lang=detected;data.langSure=true;}}
+  if(!data.numSure||data.ocrConflict||(data.lang==="zh"&&!data.codeSure))await recoverPrintedFooter(c,data,plausible);
   await applyReferenceMatch(item, c);
   allCards.push(item); list.append(item.el);
   await refreshLookup(item);
@@ -1590,6 +1630,7 @@ async function refreshLookup(item){
     const check=CardFacts.assess(d.printedFacts,selected?.facts);
     d.factConflict=!!check.conflicts.length;d.factMessage=check.conflicts.join(" · ");
   }
+  if(d.lang==="ja"&&d.codeSure)d.set=regionalSetName(d.lang,d.code,d.set);
   render(item); renderExport();
   findCardmarket(item);
 }
@@ -1626,17 +1667,19 @@ function cardmarketBrowseUrl(d){
   const gem=gemPackIdentity(d);
   return gem ? "https://www.cardmarket.com/de/Pokemon/Products/Singles/"+gem.set : "";
 }
-function searchQuery(d){
+function cardmarketSearches(d){
   const gem=gemPackIdentity(d);
-  if(gem) return [d.enName || d.local || d.name,gem.code,gem.number].filter(Boolean).join(" ");
-  if (d.vintageSet) return [d.enName || d.local, d.vintageSet].filter(Boolean).join(" ");
-  if (d.lang === "zh") return [d.enName || d.local || d.name,d.code,d.number].filter(Boolean).join(" ");
-  const numerator = (d.number || "").split("/")[0];
-  if ((d.lang === "ja" || d.lang === "zh") && d.code)
-    return [[d.enName, `(${d.code} ${parseInt(numerator.replace(/\D/g, ""), 10)})`].filter(Boolean).join(" "), [d.enName || d.local, d.code, d.number].filter(Boolean).join(" ")].join(" || ");
-  if (d.lang === "ja" || d.lang === "zh") return [d.enName || d.name, d.number].filter(Boolean).join(" ");
-  return [d.enName || d.name, d.code || d.enSet || d.set, numerator].filter(Boolean).join(" ");
+  const name=d.enName || (typeof NameIndex!=="undefined"?NameIndex.lookup(d.local||d.name,d.lang):"") || d.name || d.local;
+  const set=String(gem?gem.set.replace(/-/g," "):d.enSet || d.vintageSet || d.set || d.code || "").replace(/ Shiny Vault$/i,"");
+  // Preserve the full printed number in the card record. Only the collector
+  // portion goes into search; Gem Pack first needs its family/variant split.
+  const number=gem?gem.number:/^DPBP#|^\d{4}\/\d{1,2}$/.test(d.number||"")?"":(d.number||"").split("/")[0];
+  const searches=[];
+  if(number&&set)searches.push({kind:"number",label:"Nummer + Set",query:number+" "+set});
+  if(name)searches.push({kind:"name",label:set?"Name + Set":"Kartenname",query:[name,set].filter(Boolean).join(" ")});
+  return searches;
 }
+function searchQuery(d){ return cardmarketSearches(d).map(s=>s.query).join(" || "); }
 async function findCardmarket(item){
   const d = item.data;
   d.cmFound = ""; d.cmPrices = ""; d.cmCandidate = ""; d.cmState = "";
@@ -1664,6 +1707,7 @@ function cmLink(d){ return cmWithFilters(d.cmFound || d.cmPrices || "", d.lang) 
 /* ---------- verified direct Cardmarket products ---------- */
 // Unknown products stay searchable; redirect services are never labelled as Cardmarket links.
 const CM_PRODUCTS_BY_ID = {
+  "bw10-13": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Plasma-Blast/Volcarona-PLB13",
   "bw6-19": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Dragons-Exalted/Ninetales-DRX19",
   "svp-SVP192": "https://www.cardmarket.com/de/Pokemon/Products/Singles/SV-Black-Star-Promos/Fuecoco-SVP192",
   "ecard3-109": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Skyridge/Teddiursa-SK109",
@@ -1757,10 +1801,9 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("focus", () => setTimeout(tryClipboard, 300));
 
 /* ---------- output ---------- */
-function googleUrl(d){
-  const gem=gemPackIdentity(d);
-  const parts = ["site:cardmarket.com", d.enName || d.name || d.local, gem ? gem.code : d.vintageSet || d.code || d.enSet || d.set, gem ? gem.number : /^DPBP#/.test(d.number || "") ? "" : d.number || (d.dexNo ? "No." + d.dexNo : ""), d.lang === "ja" ? "japanese" : d.lang === "zh" ? "chinese" : ""];
-  return "https://www.google.de/search?q=" + encodeURIComponent(parts.filter(Boolean).join(" "));
+function googleUrl(d,kind){
+  const searches=cardmarketSearches(d),chosen=searches.find(s=>s.kind===kind)||searches[0];
+  return "https://www.google.de/search?q="+encodeURIComponent([chosen?.query,"Cardmarket"].filter(Boolean).join(" "));
 }
 
 const CM_LANG = {de: "3", en: "1", ja: "7", zh: "6"};
@@ -1835,7 +1878,7 @@ function render(item){
   else if (d.cmState === "error") cm = `<div class="cm miss">Cardmarket-Helfer nicht erreichbar</div>`;
   else if (!cseId()) cm = awaiting === item
       ? `<button class="cm get" type="button" data-paste>Kopierten Link einfügen</button><div class="hint">Bei Google den Cardmarket-Treffer gedrückt halten → „Link kopieren“ → zurück hierher.</div>`
-      : `<button class="cm get" type="button" data-fetch>Cardmarket-Link holen</button>`;
+      : `<div class="cm miss">Noch kein bestätigter Cardmarket-Produktlink.</div>`;
   else cm = `<div class="cm miss">Noch keine Nummer</div>`;
 
   item.el.innerHTML = `
@@ -1859,7 +1902,7 @@ function render(item){
     ${d.cmCandidate ? `<a class="google" href="${esc(d.cmCandidate)}" target="_blank" rel="noopener">Cardmarket-Suchtreffer prüfen</a><div class="hint">Noch nicht bestätigt. Bild, Nummer und Ausgabe vergleichen; den passenden Link unter „Korrigieren“ übernehmen.</div>` : ""}
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
-    <a class="google" href="${esc(googleUrl(d))}" target="_blank" rel="noopener">Bei Google suchen</a>
+    ${cardmarketSearches(d).map(s=>`<a class="google" data-fetch href="${esc(googleUrl(d,s.kind))}" target="_blank" rel="noopener">${esc(s.label)} bei Google suchen</a>`).join("")}
     ${slugOf(d) ? `<div class="slug">${esc(slugOf(d))}</div>` : ""}
     <details class="fix"${item.open ? " open" : ""}>
       <summary>Korrigieren</summary>
@@ -1905,10 +1948,12 @@ function render(item){
     const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.ocrConflict=false; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
-  item.el.querySelector("[data-fetch]")?.addEventListener("click", () => {
+  item.el.querySelectorAll("[data-fetch]").forEach(link=>link.addEventListener("click", event => {
+    event.preventDefault();
+    const url=link.href;
     awaiting = item; render(item);
-    window.open(googleUrl(d), "_blank", "noopener");
-  });
+    window.open(url, "_blank", "noopener");
+  }));
   item.el.querySelector("[data-paste]")?.addEventListener("click", async () => {
     if (!(await tryClipboard())) setStatus("In der Zwischenablage ist noch kein Cardmarket-Link. Bei Google den Treffer gedrückt halten und „Link kopieren“ wählen.", true);
   });

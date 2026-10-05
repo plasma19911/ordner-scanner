@@ -1,0 +1,28 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8'),section=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b));
+let reads=['SWSH244','SWSH244'],texts=['SWSH244','SWSH244'];
+const ctx=vm.createContext({stripOf:()=>({}),PaddleReader:{read:async()=>({lines:[{text:reads.shift()||'',score:.99}]})},ocrLines:async()=>({text:texts.shift()||''})});
+vm.runInContext(fs.readFileSync('card-evidence.js','utf8'),ctx);
+vm.runInContext(section('const NUM_RE','async function ocr(')+section('async function recoverPrintedFooter(','async function finishCard('),ctx);
+assert.equal(ctx.findNumber('SV048SV122'),'SV048/SV122');
+assert.equal(ctx.findNumber('OsV048SV122'),'SV048/SV122');
+assert.equal(ctx.findNumber('SV048GG122'),null);
+assert.equal(ctx.findChineseCode('CB83C'),'CBB3C');
+vm.runInContext(section('function regionalSetName(', 'function getSets('),ctx);
+assert.equal(ctx.regionalSetName('ja','SV4a','wrong'),'Shiny Treasure ex');
+assert.equal(ctx.regionalSetName('en','SV4a','preserve'),'preserve');
+assert.equal(ctx.regionalSetName('ja','unknown','preserve'),'preserve');
+(async()=>{
+ const d={lang:'en',number:'SWSH24',numSure:false,observedNumbers:[]};
+ await ctx.recoverPrintedFooter({},d,n=>ctx.specialNumber(n));assert.equal(d.number,'SWSH244');assert.equal(d.numSure,true);
+ reads=['SWSH244','SWSH244'];texts=['SWSH244','SWSH244'];
+ const conflict={lang:'en',number:'SWSH24',numSure:true,observedNumbers:[]};
+ await ctx.recoverPrintedFooter({},conflict,n=>ctx.specialNumber(n));assert.equal(conflict.number,'SWSH24');assert.equal(conflict.ocrConflict,true);
+ reads=['SWSH244','SWSH24'];texts=['',''];
+ const ambiguous={lang:'en',number:'',numSure:false,observedNumbers:[]};
+ await ctx.recoverPrintedFooter({},ambiguous,n=>ctx.specialNumber(n));assert.equal(ambiguous.numSure,false);
+ reads=['151/091','151/091','151/091'];texts=['151/097',''];
+ const recovered={number:'151/091',numSure:false,ocrConflict:true,observedNumbers:[]};
+ await ctx.recoverPrintedFooter({},recovered,()=>true);assert.equal(recovered.numSure,true);assert.equal(recovered.ocrConflict,false);
+ console.log('Footer recovery preserves conflicts and requires corroborating reads');
+})().catch(e=>{console.error(e);process.exitCode=1});

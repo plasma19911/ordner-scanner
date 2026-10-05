@@ -26,3 +26,7 @@ vm.runInContext(detail,dc);
  assert.equal(stale.data.detailMismatch,undefined);
  console.log('Wrong-card detail photos and stale detail responses rejected');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+assert.equal(f.language({lines:[line('deines Gegners Schadensmarken Schadenspunkte')]}),'de');
+assert.equal(f.language({lines:[line('Heal damage. Discard your hand.')]}),'en');
+assert.equal(f.language({lines:[line('Ursaring 80 HP')]}),'');
+assert.equal(f.language({lines:[line('Your damage discard',.4)]}),'');
