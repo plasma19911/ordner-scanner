@@ -1,0 +1,322 @@
+{
+  "version": 1,
+  "checkedAt": "2026-10-05",
+  "coverage": "Verified product URLs for four Gem Pack card families; not a complete Cardmarket catalogue. Printed-reference images are not mapped to Cardmarket foil variants.",
+  "groups": [
+    {
+      "id": "CBB1C:03",
+      "lang": "zh",
+      "codes": [
+        "CBB1C",
+        "CM1C"
+      ],
+      "collector": "03",
+      "printTotal": "09",
+      "set": "Gem Pack Vol. 1",
+      "names": [
+        "Fuecoco",
+        "呆火鳄"
+      ],
+      "references": [
+        {
+          "printedNumber": "0304/09",
+          "image": "https://images.pikaqian.com/cbb1c/0a562789-44b1-448d-99dc-a523305cdd2a.webp",
+          "source": "https://pikaqian.com/cards/0a562789-44b1-448d-99dc-a523305cdd2a"
+        }
+      ],
+      "variants": [
+        {
+          "id": "CBB1C-03-V1",
+          "name": "Fuecoco",
+          "label": "Cardmarket V1",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V1-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V2",
+          "name": "Fuecoco",
+          "label": "Cardmarket V2",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V2-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V3",
+          "name": "Fuecoco",
+          "label": "Cardmarket V3",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V3-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V4",
+          "name": "Fuecoco",
+          "label": "Cardmarket V4",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V4-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V5",
+          "name": "Fuecoco",
+          "label": "Cardmarket V5",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V5-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V6",
+          "name": "Fuecoco",
+          "label": "Cardmarket V6",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V6-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V7",
+          "name": "Fuecoco",
+          "label": "Cardmarket V7",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V7-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V8",
+          "name": "Fuecoco",
+          "label": "Cardmarket V8",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V8-CBB1C03"
+        },
+        {
+          "id": "CBB1C-03-V9",
+          "name": "Fuecoco",
+          "label": "Cardmarket V9",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Fuecoco-V9-CBB1C03"
+        }
+      ]
+    },
+    {
+      "id": "CBB1C:04",
+      "lang": "zh",
+      "codes": [
+        "CBB1C",
+        "CM1C"
+      ],
+      "collector": "04",
+      "printTotal": "08",
+      "set": "Gem Pack Vol. 1",
+      "names": [
+        "Crocalor",
+        "炙烫鳄"
+      ],
+      "references": [
+        {
+          "printedNumber": "0402/08",
+          "image": "https://images.pikaqian.com/cbb1c/c8e91b50-06bb-4aec-a487-3086420292de.webp",
+          "source": "https://pikaqian.com/cards/c8e91b50-06bb-4aec-a487-3086420292de"
+        }
+      ],
+      "variants": [
+        {
+          "id": "CBB1C-04-V1",
+          "name": "Crocalor",
+          "label": "Cardmarket V1",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V1-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V2",
+          "name": "Crocalor",
+          "label": "Cardmarket V2",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V2-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V3",
+          "name": "Crocalor",
+          "label": "Cardmarket V3",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V3-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V4",
+          "name": "Crocalor",
+          "label": "Cardmarket V4",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V4-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V5",
+          "name": "Crocalor",
+          "label": "Cardmarket V5",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V5-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V6",
+          "name": "Crocalor",
+          "label": "Cardmarket V6",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V6-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V7",
+          "name": "Crocalor",
+          "label": "Cardmarket V7",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V7-CBB1C04"
+        },
+        {
+          "id": "CBB1C-04-V8",
+          "name": "Crocalor",
+          "label": "Cardmarket V8",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Crocalor-V8-CBB1C04"
+        }
+      ]
+    },
+    {
+      "id": "CBB1C:07",
+      "lang": "zh",
+      "codes": [
+        "CBB1C",
+        "CM1C"
+      ],
+      "collector": "07",
+      "printTotal": "09",
+      "set": "Gem Pack Vol. 1",
+      "names": [
+        "Captain Pikachu",
+        "船长皮卡丘",
+        "Pikachu"
+      ],
+      "references": [
+        {
+          "printedNumber": "0704/09",
+          "image": "https://images.pikaqian.com/cbb1c/71db1208-4008-4035-884d-ce90e25e651f.webp",
+          "source": "https://pikaqian.com/cards/71db1208-4008-4035-884d-ce90e25e651f"
+        },
+        {
+          "printedNumber": "0701/09",
+          "image": "https://images.pikaqian.com/cbb1c/ce5f92cc-6881-4ee4-b28b-b9702a630828.webp",
+          "source": "https://pikaqian.com/cards/ce5f92cc-6881-4ee4-b28b-b9702a630828"
+        },
+        {
+          "printedNumber": "0702/09",
+          "image": "https://images.pikaqian.com/cbb1c/4f5ff566-da17-4108-94da-d3ed055f5cbc.webp",
+          "source": "https://pikaqian.com/cards/4f5ff566-da17-4108-94da-d3ed055f5cbc"
+        }
+      ],
+      "variants": [
+        {
+          "id": "CBB1C-07-V1",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V1",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V1-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V2",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V2",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V2-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V3",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V3",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V3-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V4",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V4",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V4-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V5",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V5",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V5-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V6",
+          "name": "Pikachu",
+          "label": "Cardmarket V6",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Pikachu-V6-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V7",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V7",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V7-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V8",
+          "name": "Pikachu",
+          "label": "Cardmarket V8",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Pikachu-V8-CBB1C07"
+        },
+        {
+          "id": "CBB1C-07-V9",
+          "name": "Captain Pikachu",
+          "label": "Cardmarket V9",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-1/Captain-Pikachu-V9-CBB1C07"
+        }
+      ]
+    },
+    {
+      "id": "CBB3C:02",
+      "lang": "zh",
+      "codes": [
+        "CBB3C",
+        "CM3C"
+      ],
+      "collector": "02",
+      "printTotal": "07",
+      "set": "Gem Pack Vol. 3",
+      "names": [
+        "Meowth",
+        "喵喵"
+      ],
+      "references": [
+        {
+          "printedNumber": "0204/07",
+          "image": "https://images.pikaqian.com/cbb3c/265608c6-ce17-457e-a0bf-b167444d8367.webp",
+          "source": "https://pikaqian.com/cards/265608c6-ce17-457e-a0bf-b167444d8367"
+        },
+        {
+          "printedNumber": "0203/07",
+          "image": "https://images.pikaqian.com/cbb3c/0179ec50-4ebc-49d1-8ddb-92973d5b22b7.webp",
+          "source": "https://pikaqian.com/cards/0179ec50-4ebc-49d1-8ddb-92973d5b22b7"
+        },
+        {
+          "printedNumber": "0202/07",
+          "image": "https://images.pikaqian.com/cbb3c/2b9c3218-0052-4bcb-bad1-779fe86adfc8.webp",
+          "source": "https://pikaqian.com/cards/2b9c3218-0052-4bcb-bad1-779fe86adfc8"
+        }
+      ],
+      "variants": [
+        {
+          "id": "CBB3C-02-V1",
+          "name": "Meowth",
+          "label": "Cardmarket V1",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V1-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V2",
+          "name": "Meowth",
+          "label": "Cardmarket V2",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V2-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V3",
+          "name": "Meowth",
+          "label": "Cardmarket V3",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V3-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V4",
+          "name": "Meowth",
+          "label": "Cardmarket V4",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V4-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V5",
+          "name": "Meowth",
+          "label": "Cardmarket V5",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V5-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V6",
+          "name": "Meowth",
+          "label": "Cardmarket V6",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V6-CBB3C02"
+        },
+        {
+          "id": "CBB3C-02-V7",
+          "name": "Meowth",
+          "label": "Cardmarket V7",
+          "url": "https://www.cardmarket.com/de/Pokemon/Products/Singles/Gem-Pack-Vol-3/Meowth-V7-CBB3C02"
+        }
+      ]
+    }
+  ]
+}

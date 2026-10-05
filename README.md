@@ -153,3 +153,19 @@ Google-Suchen heißen ausdrücklich „Nummer + Set bei Google suchen“ bzw.
 „Auf Cardmarket öffnen“ bleibt ausschließlich eine direkte Produktseite.
 Die beiden Suchwege werden getrennt angeboten, statt beide gleichzeitig in eine
 übermäßig eingeschränkte Google-Anfrage zu packen.
+
+### Manuelle Druck- und Holo-Auswahl
+
+Bei hinterlegten Gem-Pack-Familien zeigt jede Karte eine eigene Versionsauswahl.
+Aktuell enthält `variant-catalog.json` 33 einzeln recherchierte Cardmarket-Produkte
+für Fuecoco, Crocalor und Captain Pikachu/Pikachu aus Gem Pack Vol. 1 sowie Meowth
+aus Vol. 3. Das ist ein erweiterbarer Teilkatalog, keine vollständige Variantenabdeckung.
+Acht gedruckte Varianten haben ergänzende Pikaqian-Bildreferenzen. Diese Bilder
+sind ausdrücklich **nicht** bestimmten Cardmarket-V-Nummern zugeordnet.
+Cardmarket blockiert hier den automatischen Abruf seiner Produktbilder; zum
+Bildvergleich öffnet man deshalb die jeweilige Produktseite. V1/V2 usw. werden
+nicht als Holo-Typ interpretiert. Erst die manuelle Auswahl setzt den Produktlink.
+Sie gilt nur für die einzelne Karte, wird exportiert und bei geänderten Kartendaten
+ungültig. Holo-Produkte werden nicht über den gemeinsamen Link-Speicher verteilt.
+Die App benötigt dafür keinen Account oder kostenpflichtigen KI-Dienst. Eine
+allgemeine KI-Webrecherche wie im Chat läuft in der App nicht automatisch mit.
