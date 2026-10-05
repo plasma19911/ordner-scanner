@@ -180,11 +180,13 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="artwork-search.js"></script>
 <script src="paddle-reader.js"></script>
 <script src="chinese-cards.js"></script>
+<script src="variant-picker.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
 const statusEl = $("#status"), resultsEl = $("#results");
 const allCards = [];
+if(typeof VariantPicker!=="undefined") VariantPicker.ready.then(()=>allCards.forEach(render));
 const GH = (() => {
   const m = location.hostname.match(/^([a-z0-9-]+)\.github\.io$/i);
   const repo = location.pathname.split("/").filter(Boolean)[0];
@@ -1683,12 +1685,12 @@ function searchQuery(d){ return cardmarketSearches(d).map(s=>s.query).join(" || 
 async function findCardmarket(item){
   const d = item.data;
   d.cmFound = ""; d.cmPrices = ""; d.cmCandidate = ""; d.cmState = "";
+  const chosen = typeof VariantPicker!=="undefined" && VariantPicker.selected(d);
+  if(chosen){d.cmFound=chosen.url;d.cmState="found";render(item);renderExport();return;}
   if (d.factConflict || d.detailMismatch || d.ocrConflict || !d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
+  if(gemPackIdentity(d) || (typeof VariantPicker!=="undefined" && VariantPicker.group(d))){d.cmState="ambiguous";render(item);renderExport();return;}
   const known = memGet(d);
   if (known){ d.cmFound = known; d.cmState = "found"; render(item); renderExport(); return; }
-  // Gem Pack foil versions share one Cardmarket collector number. A first
-  // search result cannot certify which printed foil version is on the photo.
-  if(gemPackIdentity(d)){d.cmState="ambiguous";render(item);renderExport();return;}
   d.cmPrices = pricesLink(d);
   if (d.cmPrices){ d.cmState = "prices"; render(item); renderExport(); return; }   // exact product page, no search needed
   if (!cseId() || !(d.number || d.vintageSet)) return;
@@ -1776,14 +1778,19 @@ function extractCardmarket(text){
 function acceptLink(item, url){
   const d = item.data;
   url = extractCardmarket(url); if(!url) return;
-  d.cmFound = url; d.cmPrices = ""; d.cmState = "found"; memSet(d, url);
+  d.cmFound = url; d.cmPrices = ""; d.cmState = "found";
+  const variantGroup=typeof VariantPicker!=="undefined" && VariantPicker.group(d);
+  const ownVersion=!!(gemPackIdentity(d)||variantGroup);
+  const variant=variantGroup?.variants.find(v=>v.url===url);
+  if(variant) VariantPicker.choose(d,variant.id,VariantPicker.scope(d));
+  if(!ownVersion) memSet(d, url);
   const card = decodeURIComponent((slugOf(d).split("/")[1]) || "");
   const num = parseInt((d.number || "").split("/")[0].replace(/\D/g, ""), 10);
   if (d.code && num && new RegExp(d.code + "0*" + num + "$", "i").test(card)){ d.codeSure = true; d.numSure = true; }
   if (!d.name){ d.name = card.replace(/-V\d+(-.*)?$/, "").replace(/-(SHFSV)?\d+$/, "").replace(/-/g, " "); d.enName = d.name; }
   render(item);
   // same card elsewhere on the page (e.g. a second Dedenne) gets the link too
-  allCards.filter(o => o !== item && !o.data.cmFound && !o.data.factConflict && !o.data.detailMismatch && !o.data.ocrConflict && cardKey(o.data) && cardKey(o.data) === cardKey(d))
+  if(!ownVersion) allCards.filter(o => o !== item && !o.data.cmFound && !o.data.factConflict && !o.data.detailMismatch && !o.data.ocrConflict && cardKey(o.data) && cardKey(o.data) === cardKey(d))
           .forEach(o => { o.data.cmFound = url; o.data.cmState = "found"; render(o); });
   renderExport();
 }
@@ -1900,6 +1907,7 @@ function render(item){
     ${typeof CardFacts!=="undefined"&&(!d.cmFound&&!d.cmPrices||d.factConflict)?`<div class="hint">${esc(CardFacts.guidance(d))}</div><button class="btn small" type="button" data-detail>Detailfoto ergänzen</button>${CardFacts.links(d).map(l=>`<a class="google" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}`:""}
     ${d.detailNumberCandidate||d.detailCodeCandidate?`<div class="hint">Abweichend im Detailfoto gelesen: ${esc(d.detailNumberCandidate||d.number)} ${esc(d.detailCodeCandidate||d.code)}</div><button class="btn small" data-detail-accept>Diese Angaben nach Vergleich übernehmen</button>`:""}
     ${d.cmCandidate ? `<a class="google" href="${esc(d.cmCandidate)}" target="_blank" rel="noopener">Cardmarket-Suchtreffer prüfen</a><div class="hint">Noch nicht bestätigt. Bild, Nummer und Ausgabe vergleichen; den passenden Link unter „Korrigieren“ übernehmen.</div>` : ""}
+    <div data-variants></div>
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
     ${cardmarketSearches(d).map(s=>`<a class="google" data-fetch href="${esc(googleUrl(d,s.kind))}" target="_blank" rel="noopener">${esc(s.label)} bei Google suchen</a>`).join("")}
@@ -1948,6 +1956,7 @@ function render(item){
     const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.ocrConflict=false; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
+  if(typeof VariantPicker!=="undefined") VariantPicker.mount(item.el.querySelector("[data-variants]"),d,()=>{render(item);renderExport();setStatus("Holo-/Druckversion für diese Karte bestätigt.");},openZoom);
   item.el.querySelectorAll("[data-fetch]").forEach(link=>link.addEventListener("click", event => {
     event.preventDefault();
     const url=link.href;
@@ -2065,7 +2074,7 @@ function mergeLinks(obj){
 }
 function applyMemory(){
   let n = 0;
-  allCards.forEach(it => { if (!it.data.cmFound && !it.data.factConflict && !it.data.detailMismatch && !it.data.ocrConflict){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
+  allCards.forEach(it => { if (!gemPackIdentity(it.data) && !(typeof VariantPicker!=="undefined" && VariantPicker.group(it.data)) && !it.data.cmFound && !it.data.factConflict && !it.data.detailMismatch && !it.data.ocrConflict){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
   if (n) renderExport();
   return n;
 }

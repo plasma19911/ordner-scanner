@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {JSDOM}=require('jsdom'),picker=require('../variant-picker.js');
+picker.configure(require('../variant-catalog.json'));
+const fresh=()=>({name:'Captain Pikachu',enName:'Captain Pikachu',lang:'zh',langSure:true,number:'0701/09',code:'CBB1C',set:'Gem Pack Vol. 1',options:[]});
+const d=fresh(),other=fresh();assert.equal(picker.group(d).variants.length,9);assert.equal(picker.selected(d),null);
+const v=picker.group(d).variants.find(v=>v.id.endsWith('V6'));assert.match(v.url,/\/Pikachu-V6-/);
+const dom=new JSDOM('<div id="host"></div>'),host=dom.window.document.querySelector('div');let chosen=0;
+picker.mount(host,d,()=>chosen++,()=>{});assert.equal(host.querySelectorAll('button').length,9);
+host.querySelectorAll('button')[5].click();assert.equal(chosen,1);assert.equal(d.cmFound,v.url);assert.equal(d.number,'0701/09');assert.equal(other.cmFound,undefined);assert.equal(picker.selected(d).url,v.url);
+d.number='0702/09';assert.equal(picker.selected(d),null);assert.equal(picker.choose(d,v.id,picker.scope(other)),false);
+assert.equal(picker.group({...fresh(),lang:'ja'}),null);assert.equal(picker.group({...fresh(),code:'CBB3C'}),null);
+assert.equal(picker.choose({...fresh(),factConflict:true},v.id,picker.scope(fresh())),false);
+const html=fs.readFileSync('index.html','utf8');
+const ctx=vm.createContext({VariantPicker:picker,gemPackIdentity:()=>true,render:()=>{},renderExport:()=>{},memGet:()=>{throw Error('Foil link must not come from shared memory');}});
+vm.runInContext(html.slice(html.indexOf('async function findCardmarket('),html.indexOf('function cmLink(')),ctx);
+(async()=>{const x=fresh();await ctx.findCardmarket({data:x});assert.equal(x.cmState,'ambiguous');picker.choose(x,v.id,picker.scope(x));await ctx.findCardmarket({data:x});assert.equal(x.cmFound,v.url);console.log('Variant choice, stale identity, conflicts and per-card isolation passed');})();
