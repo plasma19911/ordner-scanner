@@ -8,6 +8,33 @@
   }
   return [...new Set(found)].sort((a,b)=>a-b);
  }
+ // Only used on bottom-of-card OCR, never on attack text or the complete card.
+ function footerYears(text,now=new Date().getFullYear()){
+  const found=years(text,now);
+  for(const line of String(text||'').normalize('NFKC').split(/\n/)){
+   const m=/^\s*[©Ⓒ(c)\s]*((?:19|20)\d{2})[.,\s]*$/i.exec(line);
+   if(m&&Number(m[1])>=1995&&Number(m[1])<=now+1)found.push(Number(m[1]));
+  }
+  return [...new Set(found)].sort((a,b)=>a-b);
+ }
+ function collector(number){
+  const m=/^([A-Z]*\d+)\/([A-Z]*\d+)$/i.exec(numberKey(number));
+  return m?{number:m[1],total:m[2],size:Number(m[2].replace(/^[A-Z]+/,''))}:null;
+ }
+ function resolve(options,evidence){
+  const c=collector(evidence.number),ys=evidence.copyrightYears||[];
+  if(!c||!evidence.numSure||evidence.ocrConflict||evidence.factConflict||evidence.detailMismatch||!ys.length)return null;
+  const y=Math.max(...ys),compatible=options.filter(o=>Number(o.printedTotal)===c.size);
+  // Unknown dates remain candidates. A year alone cannot identify a reprint.
+  if(compatible.length!==options.length||compatible.length<2||compatible.some(o=>!/^\d{4}-/.test(o.releaseDate||'')))return null;
+  const exact=compatible.filter(o=>Number(o.releaseDate.slice(0,4))===y);
+  if(exact.length!==1)return null;
+  const winner=exact[0];
+  // Other releases within a year can use the same copyright line.
+  if(compatible.some(o=>o!==winner&&Math.abs(Number(o.releaseDate.slice(0,4))-y)<=1))return null;
+  if(!evidence.observedName&&evidence.symbolHint!==winner.setId)return null;
+  return {...winner,setReason:'Kartennummer, Setgröße und Copyright-Jahr passen; '+(evidence.observedName?'Kartenname stimmt überein.':'Setsymbol stimmt überein.')};
+ }
  function numberKey(s){return String(s||'').normalize('NFKC').replace(/\s/g,'').toUpperCase().replace(/(^|\/)([A-Z]*)0+(?=\d)/g,'$1$2');}
  function consensus(votes,plausible){
   const scores=new Map();for(const n of votes){if(!plausible(n))continue;const k=numberKey(n),r=scores.get(k)||{number:n,count:0};r.count++;scores.set(k,r);}
@@ -41,11 +68,11 @@
    const local=matches.length===1?matches[0]:null;
    if(local){
     if(local.symbolMask&&typeof document!=='undefined'&&!previews.has(local.id))previews.set(local.id,maskCanvas(local.symbolMask).toDataURL());
-    return {...o,releaseDate:local.releaseDate,symbolMask:local.symbolMask,symbolPreview:previews.get(local.id)||'',setMetadataSource:local.source};
+    return {...o,releaseDate:local.releaseDate,printedTotal:o.printedTotal||local.printedTotal,symbolMask:local.symbolMask,symbolPreview:previews.get(local.id)||'',setMetadataSource:local.source};
    }
    if(!o.setId||options.length>16)return o;const key=api+':'+o.setId;
    if(!details.has(key))details.set(key,fetcher(`https://api.tcgdex.net/v2/${api}/sets/${encodeURIComponent(o.setId)}`,{signal:AbortSignal.timeout(8000)}).then(r=>{if(!r.ok)throw Error();return r.json();}).catch(()=>{details.delete(key);return null;}));
-   const d=await details.get(key);return {...o,releaseDate:d?.releaseDate||o.releaseDate||'',symbol:d?.symbol||o.symbol||''};
+   const d=await details.get(key);return {...o,printedTotal:o.printedTotal||d?.cardCount?.official,releaseDate:d?.releaseDate||o.releaseDate||'',symbol:d?.symbol||o.symbol||''};
   }));
  }
  function rank(options,evidence){
@@ -86,5 +113,5 @@
   }finally{src.delete();gray.delete();binary.delete();}
   scores.sort((a,b)=>b.score-a.score);return scores[0]?.score>=.82&&(!scores[1]||scores[0].score-scores[1].score>=.10)?scores[0].id:'';
  }
- root.CardEvidence={years,numberKey,consensus,orientation,enrich,rank,matchSymbols};
+ root.CardEvidence={years,footerYears,collector,resolve,numberKey,consensus,orientation,enrich,rank,matchSymbols};
 })(globalThis);

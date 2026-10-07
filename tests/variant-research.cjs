@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+global.VariantPicker=require('../variant-picker.js');
+const r=require('../variant-research.js');
+const fresh=()=>({name:'Furret',enName:'Furret',lang:'en',langSure:true,setId:'swsh3',setSure:true,set:'Darkness Ablaze',number:'136/189'});
+const card={name:'Furret',id:'swsh3-136',localId:'136',set:{id:'swsh3',name:'Darkness Ablaze',cardCount:{official:189}},image:'https://assets.tcgdex.net/en/swsh/swsh3/136',variants_detailed:[{type:'normal',thirdParty:{cardmarket:483559}},{type:'reverse',thirdParty:{cardmarket:483559}}]};
+const direct='https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Furret-DAA136';
+(async()=>{
+ const d=fresh(),other=fresh();let calls=0;const fetcher=async()=>{calls++;return {ok:true,json:async()=>card};};
+ await r.load(d,fetcher);await r.load(other,fetcher);assert.equal(calls,1);assert.equal(r.state(d).result.variants.length,2);
+ assert.equal(r.decode({...card,localId:'137'},d,r.request(d)),null);
+ assert.equal(r.decode({...card,set:{...card.set,cardCount:{official:190}}},d,r.request(d)),null);
+ assert.equal(r.decode({...card,name:'Pikachu'},d,r.request(d)),null);
+ d.cmFound=direct;assert.equal(r.choose(d,'1'),true);assert.equal(d.cmFound,'');assert.equal(r.pending(d),true);assert.equal(r.choice(other),null);
+ assert.equal(r.confirm(d,'https://www.google.de/search?q=foo'),false);assert.equal(r.confirm(d,direct),true);assert.equal(r.selected(d).url,direct);
+ const html=fs.readFileSync('index.html','utf8'),ctx=vm.createContext({VariantResearch:r,VariantPicker:global.VariantPicker,render:()=>{},renderExport:()=>{}});
+ vm.runInContext(html.slice(html.indexOf('async function findCardmarket('),html.indexOf('function cmLink(')),ctx);
+ await ctx.findCardmarket({data:d});assert.equal(d.cmFound,direct);
+ r.choose(d,'0');await ctx.findCardmarket({data:d});assert.equal(d.cmFound,'');assert.equal(d.cmState,'ambiguous');
+ d.number='137/189';assert.equal(r.state(d),null);assert.equal(r.choice(d),null);
+ assert.equal(r.request({...fresh(),ocrConflict:true}),null);
+ assert.match(r.request({...fresh(),setId:'swsh4.5sv',number:'SV048/SV122'}).url,/SV048$/);
+ let finish;const delayed={...fresh(),setId:'new'};const task=r.load(delayed,()=>new Promise(resolve=>{finish=()=>resolve({ok:true,json:async()=>({...card,set:{...card.set,id:'new'}})});}));
+ delayed.number='001/189';finish();await task;assert.equal(r.state(delayed),null);
+ console.log('Dynamic variants: exact card identity, shared requests, per-card selection, pending links and stale replies passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

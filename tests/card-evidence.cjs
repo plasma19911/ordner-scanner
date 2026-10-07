@@ -41,3 +41,16 @@ console.log('Footer years, number conflicts, title orientation, multilingual nam
  const ja=await e.enrich([{setId:'xy6',enSet:'Roaring Skies'}],'ja',fetcher);assert.equal(ja[0].releaseDate,'2001-01-01','regional IDs must not inherit English metadata');
  console.log('176 set dates and 175 local masks, including regional isolation, validated');
 })().catch(e=>{console.error(e);process.exitCode=1});
+assert.deepEqual(Array.from(e.footerYears('2023\nHP 200\n0202/07\n2024/2025',2026)),[2023]);
+assert.deepEqual(Array.from(e.footerYears('©1995 Nintendo\n2023',2026)),[1995,2023]);
+assert.equal(e.collector('００７ / １９９').size,199);
+const sets=[{setId:'a',printedTotal:100,releaseDate:'2007-01-01'},{setId:'b',printedTotal:100,releaseDate:'2023-01-01'}];
+const evidence={number:'007/100',numSure:true,copyrightYears:[2023],observedName:'Pikachu'};
+assert.equal(e.resolve(sets,evidence).setId,'b');
+assert.equal(e.resolve(sets,{...evidence,observedName:''}),null);
+assert.equal(e.resolve(sets,{...evidence,ocrConflict:true}),null);
+assert.equal(e.resolve(sets,{...evidence,number:'007/199'}),null);
+assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:'2023-05-01'}],evidence),null);
+assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:'2022-05-01'}],evidence),null);
+assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:''}],evidence),null);
+console.log('Set size, footer year and collector number corroborate identity without hiding competing prints');
