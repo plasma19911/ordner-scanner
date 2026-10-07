@@ -169,3 +169,29 @@ Sie gilt nur für die einzelne Karte, wird exportiert und bei geänderten Karten
 ungültig. Holo-Produkte werden nicht über den gemeinsamen Link-Speicher verteilt.
 Die App benötigt dafür keinen Account oder kostenpflichtigen KI-Dienst. Eine
 allgemeine KI-Webrecherche wie im Chat läuft in der App nicht automatisch mit.
+
+### Setgröße, Copyright-Jahr und weitere Varianten
+
+Die Zahl vor `/` wird als Sammlernummer gelesen, die Zahl dahinter als gedruckte
+Setgröße (Secret Rares dürfen deshalb eine größere Sammlernummer haben).
+Copyright-Jahre aus dem unteren Rand, auch separat erkannte Jahreszeilen, werden
+mit Erscheinungsdaten verglichen. Bei bestätigter Nummer, passender Setgröße und
+übereinstimmendem Namen oder Setsymbol kann ein einzelner Jahres-Treffer die
+Zuordnung entscheiden. Fehlende Erscheinungsdaten, gleichjährige und zeitlich
+nahe Ausgaben bleiben mehrdeutig. Copyright-Jahr und Erscheinungsjahr sind nicht
+immer identisch; die Jahreszahl allein ist kein Identitätsnachweis.
+
+Die App fragt bei bestätigter Sprache/Setnummer außerdem öffentliche TCGdex-
+Variantenangaben ab (maximal vier gleichzeitige Anfragen, ohne Bild-Upload oder
+Account). Sie kontrolliert Namen, Set, Sammlernummer und Setgröße der Antwort.
+Katalogbilder sind als Artwork-Referenzen gekennzeichnet, nicht als Nachweis des
+Folienmusters. Die Variantenwahl wird im Text- und Excel-Export festgehalten.
+Nach einer neuen Variantenwahl muss der Produktlink separat bestätigt werden;
+ein alter Link wird nicht stillschweigend weiterverwendet. Die Abdeckung hängt
+von den regionalen Katalogdaten ab, insbesondere bei chinesischen Ausgaben.
+
+Der GitHub-Linkhelfer übernimmt Suchtreffer nur bei passendem englischem Set
+und passender Sammlernummer im Produktpfad. Mehrere passende Produkte und
+separate V-Produktversionen bleiben zur manuellen Prüfung offen. Es werden keine
+Produktpfade aus Kartennamen erfunden. Unbekannte direkte Links bleiben als
+Google-Suche gekennzeichnet.

@@ -1,6 +1,7 @@
 // Liest die Karten aus dem Issue, sucht je Karte die Cardmarket-Seite und ergänzt links.json.
 // Zeilenformat im Issue:  <schlüssel>\t<suchbegriff>   z. B.  s4a|250/190<TAB>Dedenne (s4a 250)
 import fs from "fs";
+import {identityFromQueries, uniqueProduct} from "./link-evidence.mjs";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 const CM = /https?:\/\/www\.cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/[^"'&<>\s?#]+/i;
@@ -10,13 +11,12 @@ async function get(url){
   const r = await fetch(url, {headers: {"user-agent": UA, "accept-language": "de-DE,de;q=0.9"}});
   return r.text();
 }
-async function firstHit(q){
-  const html = await get("https://duckduckgo.com/?q=" + encodeURIComponent("\\site:cardmarket.com/de " + q));
-  const m = html.match(/uddg=([^&"']+)/);
-  if (m){ const u = decodeURIComponent(m[1]).match(CM); if (u) return u[0]; }
-  const list = await get("https://html.duckduckgo.com/html/?q=" + encodeURIComponent("site:cardmarket.com " + q));
-  for (const x of list.matchAll(/uddg=([^&"']+)/g)){ const u = decodeURIComponent(x[1]).match(CM); if (u) return u[0]; }
-  return null;
+async function firstHit(q, identity){
+  if(!identity)return null;
+  const query=encodeURIComponent(q+" Cardmarket");
+  const html=await get("https://duckduckgo.com/?q="+query);
+  const list=await get("https://html.duckduckgo.com/html/?q="+query);
+  return uniqueProduct(html+"\n"+list,identity)||null;
 }
 
 const links = fs.existsSync("links.json") ? JSON.parse(fs.readFileSync("links.json", "utf8")) : {};
@@ -26,9 +26,10 @@ for (const [key, query] of lines){
   const k = key.trim().toLowerCase();
   if (links[k]) continue;
   let url = null;
+  const identity=identityFromQueries(query.split("||"));
   for (let attempt = 0; attempt < 2 && !url; attempt++){
     for (const q of query.split("||").map(x => x.trim()).filter(Boolean)){
-      try { url = await firstHit(q); } catch(e){}
+      try { url = await firstHit(q, identity); } catch(e){}
       if (url) break;
     }
     if (!url) await sleep(2500);

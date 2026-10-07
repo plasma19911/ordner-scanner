@@ -181,6 +181,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="paddle-reader.js"></script>
 <script src="chinese-cards.js"></script>
 <script src="variant-picker.js"></script>
+<script src="variant-research.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
@@ -805,7 +806,7 @@ async function lookupIn(lang, number){
       .then(r=>r.ok?r.json():null).catch(()=>null);
     const c=await get(lang); if (!c?.name || c.set?.id !== setId) return [];
     const en=lang === "en" ? c : await get("en");
-    return [{name:c.name,set:c.set.name,enName:en?.name || c.name,enSet:en?.set?.name || c.set.name,setId,image:c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null}];
+    return [{name:c.name,set:c.set.name,enName:en?.name || c.name,enSet:en?.set?.name || c.set.name,setId,printedTotal:c.set.cardCount?.official,localId:c.localId,image:c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null}];
   }
   const [n, d] = number.split("/"); if (!n || !d) return [];
   const prefix = ((n.match(/^[A-Z]+/i) || [""])[0]).toLowerCase(), official = parseInt(d.replace(/\D/g, ""), 10);
@@ -821,7 +822,7 @@ async function lookupIn(lang, number){
       const e = await get("en", st.id); if (e && e.name) enName = e.name;
       const es = (enSets || []).find(x => x.id === st.id); if (es) enSet = es.name;
     }
-    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id, image: c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null};
+    return {name: c.name, set: st.name, enName, enSet: enSet.replace(/ Shiny Vault$/, ""), setId: st.id, printedTotal:st.cardCount.official,localId:c.localId,image: c.image || "",facts:typeof CardFacts!=="undefined"?CardFacts.catalogue(c):null};
   }));
   return hits.filter(Boolean);
 }
@@ -1051,11 +1052,11 @@ async function readSingle(img, list, originalThumb){
     }
   }
   // The copyright line can sit below the collector-number band.
-  if(typeof CardEvidence!=="undefined"&&!CardEvidence.years(best.bottomText).length){
+  if(typeof CardEvidence!=="undefined"&&!CardEvidence.footerYears(best.bottomText).length){
     for(const raw of [true,false]){
       const copyright=await ocr(stripOf(best.c,0.955,1,0,1,1800,raw),{tessedit_pageseg_mode:"6"});
       best.bottomText+="\n"+copyright.text;
-      if(CardEvidence.years(best.bottomText).length)break;
+      if(CardEvidence.footerYears(best.bottomText).length)break;
     }
   }
   const score = {};
@@ -1209,11 +1210,11 @@ async function readCard(card, list, pos, originalThumb){
     }
   }
   // The copyright line can sit below the collector-number band.
-  if(typeof CardEvidence!=="undefined"&&!CardEvidence.years(best.bottomText).length){
+  if(typeof CardEvidence!=="undefined"&&!CardEvidence.footerYears(best.bottomText).length){
     for(const raw of [true,false]){
       const copyright=await ocr(stripOf(best.c,0.955,1,0,1,1800,raw),{tessedit_pageseg_mode:"6"});
       best.bottomText+="\n"+copyright.text;
-      if(CardEvidence.years(best.bottomText).length)break;
+      if(CardEvidence.footerYears(best.bottomText).length)break;
     }
   }
   const score = {};
@@ -1505,7 +1506,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
       }
     }
   }
-  const data = {copyrightYears:typeof CardEvidence!=="undefined"?CardEvidence.years(best.bottomText):[],ocrConflict:!!best.numberConflict,observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
+  const data = {copyrightYears:typeof CardEvidence!=="undefined"?CardEvidence.footerYears(best.bottomText):[],ocrConflict:!!best.numberConflict,observedNumbers:[...best.votes],printedCode:printedChineseCode,picks, preferredSetId: opts.setId || "", observedName: latin ? latin.printed : "", setSure: false, name: asian ? (asian.en || asian.local) : (latin ? (lg.lang === "de" ? latin.de : latin.en) : ""), local: asian ? asian.local : "", number: best.num || "", set: "",
     code: (jaSet && jaSet.code) || code, codeSure: !!printedChineseCode || !!(jaSet && jaSet.sure), enName: asian ? (asian.en || "") : (latin ? latin.en : ""), enSet: "", lang, langSure, numSure: best.numSure, options: [], cm: "", vintageSet: vintageSet || "", dexNo: opts.dexNo || ""};
   if (latin && lg.lang === "de" && latin.de !== latin.en && latin.sourceLang === "de" && latin.d === 0) data.langSure = true;
   if (vintageSet){ data.number = ""; data.code = ""; }
@@ -1534,7 +1535,7 @@ async function finishCard(c, list, pos, best, lg, code, plausible, opts){
   }
   if (neural){
     if(typeof CardFacts!=="undefined")data.printedFacts=CardFacts.printed(neural);
-    if(typeof CardEvidence!=="undefined")data.copyrightYears=[...new Set([...data.copyrightYears,...CardEvidence.years(neural.footer.map(l=>l.text).join("\n"))])].sort((a,b)=>a-b);
+    if(typeof CardEvidence!=="undefined")data.copyrightYears=[...new Set([...data.copyrightYears,...CardEvidence.footerYears(neural.footer.map(l=>l.text).join("\n"))])].sort((a,b)=>a-b);
     if (title?.asian){
       const n=title.asian;
       Object.assign(data,{name:n.en||n.local,enName:n.en||"",local:n.local,observedName:"",lang:n.script,langSure:true,preferredSetId:""});
@@ -1619,11 +1620,12 @@ async function refreshLookup(item){
     }
     const identitySupported = !!d.observedName || !!d.numSure || !!d.preferredSetId;
     let chosen = identitySupported ? (matches.find(o => o.setId === d.preferredSetId) || (matches.length === 1 ? matches[0] : null)) : null;
+    if(!chosen && typeof CardEvidence!=="undefined") chosen=CardEvidence.resolve(matches,{...d,symbolHint});
     if (!chosen && matches.length > 1 && item.thumb){
       const image = await loadImg(item.thumb);
       if (image) chosen = await visualPick(image, matches);
     }
-    d.setSure = !!chosen;
+    d.setSure = !!chosen;d.setReason=chosen?.setReason||"";
     d.set = ""; d.enSet = ""; d.setId = "";
     if (chosen) Object.assign(d, {name: chosen.name, set: chosen.set, enName: chosen.enName, enSet: chosen.enSet, setId: chosen.setId});
   }
@@ -1685,6 +1687,9 @@ function searchQuery(d){ return cardmarketSearches(d).map(s=>s.query).join(" || 
 async function findCardmarket(item){
   const d = item.data;
   d.cmFound = ""; d.cmPrices = ""; d.cmCandidate = ""; d.cmState = "";
+  const researched = typeof VariantResearch!=="undefined" && VariantResearch.selected(d);
+  if(researched){d.cmFound=researched.url;d.cmState="found";render(item);renderExport();return;}
+  if(typeof VariantResearch!=="undefined" && VariantResearch.pending(d)){d.cmState="ambiguous";render(item);renderExport();return;}
   const chosen = typeof VariantPicker!=="undefined" && VariantPicker.selected(d);
   if(chosen){d.cmFound=chosen.url;d.cmState="found";render(item);renderExport();return;}
   if (d.factConflict || d.detailMismatch || d.ocrConflict || !d.langSure || (["de", "en"].includes(d.lang) && !d.setSure) || (["ja", "zh"].includes(d.lang) && !d.vintageSet && !d.codeSure)){ d.cmState = "ambiguous"; render(item); renderExport(); return; }
@@ -1780,7 +1785,8 @@ function acceptLink(item, url){
   url = extractCardmarket(url); if(!url) return;
   d.cmFound = url; d.cmPrices = ""; d.cmState = "found";
   const variantGroup=typeof VariantPicker!=="undefined" && VariantPicker.group(d);
-  const ownVersion=!!(gemPackIdentity(d)||variantGroup);
+  const ownVersion=!!(gemPackIdentity(d)||variantGroup||(typeof VariantResearch!=="undefined" && VariantResearch.state(d)));
+  if(typeof VariantResearch!=="undefined") VariantResearch.confirm(d,url);
   const variant=variantGroup?.variants.find(v=>v.url===url);
   if(variant) VariantPicker.choose(d,variant.id,VariantPicker.scope(d));
   if(!ownVersion) memSet(d, url);
@@ -1790,7 +1796,7 @@ function acceptLink(item, url){
   if (!d.name){ d.name = card.replace(/-V\d+(-.*)?$/, "").replace(/-(SHFSV)?\d+$/, "").replace(/-/g, " "); d.enName = d.name; }
   render(item);
   // same card elsewhere on the page (e.g. a second Dedenne) gets the link too
-  if(!ownVersion) allCards.filter(o => o !== item && !o.data.cmFound && !o.data.factConflict && !o.data.detailMismatch && !o.data.ocrConflict && cardKey(o.data) && cardKey(o.data) === cardKey(d))
+  if(!ownVersion) allCards.filter(o => o !== item && !(typeof VariantResearch!=="undefined" && VariantResearch.choice(o.data)) && !o.data.cmFound && !o.data.factConflict && !o.data.detailMismatch && !o.data.ocrConflict && cardKey(o.data) && cardKey(o.data) === cardKey(d))
           .forEach(o => { o.data.cmFound = url; o.data.cmState = "found"; render(o); });
   renderExport();
 }
@@ -1847,7 +1853,7 @@ function render(item){
   if (wasOpen !== undefined) item.open = wasOpen;
   const langOpts = Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === d.lang ? " selected" : ""}>${v}</option>`).join("");
   const setOpts = d.options.length > 1 || (d.options.length && !d.setSure)
-    ? `<label>Treffer<select data-f="pick"><option value=""${!d.setSure ? " selected" : ""}>Bitte Karte / Set auswählen</option>${d.options.map((o, i) => `<option value="${i}"${d.setSure && o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}</option>`).join("")}</select></label>` : "";
+    ? `<label>Treffer<select data-f="pick"><option value=""${!d.setSure ? " selected" : ""}>Bitte Karte / Set auswählen</option>${d.options.map((o, i) => `<option value="${i}"${d.setSure && o.name === d.name && o.set === d.set ? " selected" : ""}>${esc(o.name)} – ${esc(o.set)}${o.releaseDate?` (${esc(o.releaseDate.slice(0,4))})`:""}</option>`).join("")}</select></label>` : "";
   const englishName=d.enName||(typeof NameIndex!=="undefined"?NameIndex.lookup(d.local||d.name,d.lang):"");
   const speciesUrl=typeof NameIndex!=="undefined"?NameIndex.browse(englishName):"";
   const flags = [];
@@ -1869,6 +1875,9 @@ function render(item){
   if (d.titleUnverified) flags.push("Gedruckter Titel gelesen – Katalogtreffer prüfen");
   if (d.artworkNameInferred) flags.push("Name über Artwork erkannt – Sprache und Ausgabe prüfen");
   if (d.symbolHint) flags.push("Ähnliches Setsymbol: "+d.symbolHint+" – bitte prüfen");
+  if(d.setReason) flags.push(d.setReason);
+  const collector=typeof CardEvidence!=="undefined"?CardEvidence.collector(d.number):null;
+  if(collector) flags.push(`Kartennummer: ${collector.number} · gedruckte Setgröße: ${collector.total}`);
   if (d.copyrightYears?.length) flags.push("Copyright: "+d.copyrightYears.join(", ")+" – Hinweis, keine sichere Set-Zuordnung");
   if (d.printedCode && !d.codeSure) flags.push("Gedruckter Setcode: " + d.printedCode + " – Zuordnung prüfen");
   if (d.referenceState === "matched") flags.push("Per Referenzbild erkannt – Angaben prüfen");
@@ -1908,6 +1917,7 @@ function render(item){
     ${d.detailNumberCandidate||d.detailCodeCandidate?`<div class="hint">Abweichend im Detailfoto gelesen: ${esc(d.detailNumberCandidate||d.number)} ${esc(d.detailCodeCandidate||d.code)}</div><button class="btn small" data-detail-accept>Diese Angaben nach Vergleich übernehmen</button>`:""}
     ${d.cmCandidate ? `<a class="google" href="${esc(d.cmCandidate)}" target="_blank" rel="noopener">Cardmarket-Suchtreffer prüfen</a><div class="hint">Noch nicht bestätigt. Bild, Nummer und Ausgabe vergleichen; den passenden Link unter „Korrigieren“ übernehmen.</div>` : ""}
     <div data-variants></div>
+    <div data-variant-research></div>
     ${cm}
     ${d.referenceSource ? `<a class="google" href="${esc(d.referenceSource)}" target="_blank" rel="noopener">Referenz ansehen</a>` : ""}
     ${cardmarketSearches(d).map(s=>`<a class="google" data-fetch href="${esc(googleUrl(d,s.kind))}" target="_blank" rel="noopener">${esc(s.label)} bei Google suchen</a>`).join("")}
@@ -1957,6 +1967,7 @@ function render(item){
     await refreshLookup(item);
   }));
   if(typeof VariantPicker!=="undefined") VariantPicker.mount(item.el.querySelector("[data-variants]"),d,()=>{render(item);renderExport();setStatus("Holo-/Druckversion für diese Karte bestätigt.");},openZoom);
+  if(typeof VariantResearch!=="undefined" && !(typeof VariantPicker!=="undefined" && VariantPicker.group(d))) VariantResearch.mount(item.el.querySelector("[data-variant-research]"),d,()=>{render(item);renderExport();},openZoom);
   item.el.querySelectorAll("[data-fetch]").forEach(link=>link.addEventListener("click", event => {
     event.preventDefault();
     const url=link.href;
@@ -2027,11 +2038,14 @@ function render(item){
   }));
 }
 
+function variantLabel(d){
+  return (typeof VariantResearch!=="undefined" && VariantResearch.label(d)) || (typeof VariantPicker!=="undefined" && VariantPicker.selected(d)?.label) || "";
+}
 function renderExport(){
   updateGhButton();
   $("#exportBox").classList.toggle("hidden", !allCards.length);
   $("#exportText").value = allCards.map(({data: d}) =>
-    [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], cmLink(d) || d.cmPrices || "-", googleUrl(d)].join(" | ")).join("\n");
+    [d.name || "?", d.code || d.set || "", d.number || "?", LANGS[d.lang], cmLink(d) || d.cmPrices || "-", googleUrl(d), variantLabel(d) || "Variante ungeprüft"].join(" | ")).join("\n");
 }
 
 /* ---------- shared link list: links.json next to index.html (e.g. on GitHub) ---------- */
@@ -2074,7 +2088,7 @@ function mergeLinks(obj){
 }
 function applyMemory(){
   let n = 0;
-  allCards.forEach(it => { if (!gemPackIdentity(it.data) && !(typeof VariantPicker!=="undefined" && VariantPicker.group(it.data)) && !it.data.cmFound && !it.data.factConflict && !it.data.detailMismatch && !it.data.ocrConflict){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
+  allCards.forEach(it => { if (!gemPackIdentity(it.data) && !(typeof VariantPicker!=="undefined" && VariantPicker.group(it.data)) && !(typeof VariantResearch!=="undefined" && VariantResearch.choice(it.data)) && !it.data.cmFound && !it.data.factConflict && !it.data.detailMismatch && !it.data.ocrConflict){ const u = memGet(it.data); if (u){ it.data.cmFound = u; it.data.cmState = "found"; render(it); n++; } } });
   if (n) renderExport();
   return n;
 }
@@ -2319,8 +2333,8 @@ drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("
 document.addEventListener("paste", e => { const f = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith("image/")); if (f.length) processFiles(f); });
 $("#excelBtn").addEventListener("click", () => {
   if (!window.XLSX){ setStatus("Excel-Export konnte nicht geladen werden. Internet prüfen und Seite neu laden.", true); return; }
-  const head = ["Nr.", "Kartenname", "Set-Kürzel", "Set", "Kartennummer", "Sprache", "Zustand", "Cardmarket (NM, Sprache, DE-Händler)", "Google-Suche", "Cardmarket-Seite"];
-  const rows = allCards.map(({data: d}, i) => [i + 1, d.name, d.code, d.set, d.number, LANGS[d.lang], "Near Mint", cmLink(d) || d.cmPrices || "", googleUrl(d), d.cmFound || d.cmPrices || ""]);
+  const head = ["Nr.", "Kartenname", "Set-Kürzel", "Set", "Kartennummer", "Sprache", "Zustand", "Cardmarket (NM, Sprache, DE-Händler)", "Google-Suche", "Cardmarket-Seite", "Druck-/Holo-Variante"];
+  const rows = allCards.map(({data: d}, i) => [i + 1, d.name, d.code, d.set, d.number, LANGS[d.lang], "Near Mint", cmLink(d) || d.cmPrices || "", googleUrl(d), d.cmFound || d.cmPrices || "", variantLabel(d)]);
   const ws = XLSX.utils.aoa_to_sheet([head, ...rows]);
   rows.forEach((r, i) => {
     [[7, r[7], "Cardmarket öffnen"], [8, r[8], "Google öffnen"], [9, r[9], r[9]]].forEach(([col, url, label]) => {
@@ -2329,7 +2343,7 @@ $("#excelBtn").addEventListener("click", () => {
       ws[ref] = {t: "s", v: label, l: {Target: url, Tooltip: url}};
     });
   });
-  ws["!cols"] = [{wch: 5}, {wch: 24}, {wch: 10}, {wch: 26}, {wch: 14}, {wch: 12}, {wch: 11}, {wch: 22}, {wch: 16}, {wch: 60}];
+  ws["!cols"] = [{wch: 5}, {wch: 24}, {wch: 10}, {wch: 26}, {wch: 14}, {wch: 12}, {wch: 11}, {wch: 22}, {wch: 16}, {wch: 60}, {wch: 35}];
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Karten");
   const day = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `freshpika-karten-${day}.xlsx`);

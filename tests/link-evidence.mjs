@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {identityFromQueries,matchedProduct,uniqueProduct} from '../link-evidence.mjs';
+const id=identityFromQueries(['007 Example Set','Pikachu Example Set']);
+const url='https://www.cardmarket.com/en/Pokemon/Products/Singles/Example-Set/Pikachu-EX007';
+assert.equal(matchedProduct(url,id),url.replace('/en/','/de/'));
+for(const bad of [url.replace('007','008'),url.replace('Example-Set','Other-Set'),url.replace('Pikachu-','Pikachu-V2-'),url.replace('www.cardmarket.com','evil.example')])assert.equal(matchedProduct(bad,id),'');
+assert.equal(uniqueProduct(url+' '+url.replace('/en/','/de/'),id),url.replace('/en/','/de/'));
+assert.equal(uniqueProduct(url+' '+url.replace('Pikachu','Raichu'),id),'');
+assert.equal(identityFromQueries(['Pikachu Example Set']),null);
+assert.equal(matchedProduct(url,{number:'SV7',set:'Example Set'}),'');
+console.log('Resolver accepts exact collector number + set; rejects ambiguous print versions and first-hit mismatches');
