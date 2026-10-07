@@ -54,3 +54,8 @@ assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:'2023-05-01'}],evidence)
 assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:'2022-05-01'}],evidence),null);
 assert.equal(e.resolve([sets[1],{...sets[0],releaseDate:''}],evidence),null);
 console.log('Set size, footer year and collector number corroborate identity without hiding competing prints');
+assert.equal(e.galleryPrefix(['SV048/SV722','SV043/SV722']),'SV');
+assert.equal(e.galleryPrefix(['GG03/GG70','TG03/TG30']),'');
+assert.equal(e.galleryPrefix(['SV048/SV122','082/202']),'');
+assert.equal(e.galleryPrefix(['SV048/SV122']),'');
+console.log('Repeated gallery prefixes narrow image candidates without inventing unreadable digits');
