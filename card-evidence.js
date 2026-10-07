@@ -36,6 +36,11 @@
   return {...winner,setReason:'Kartennummer, Setgröße und Copyright-Jahr passen; '+(evidence.observedName?'Kartenname stimmt überein.':'Setsymbol stimmt überein.')};
  }
  function numberKey(s){return String(s||'').normalize('NFKC').replace(/\s/g,'').toUpperCase().replace(/(^|\/)([A-Z]*)0+(?=\d)/g,'$1$2');}
+ function galleryPrefix(votes){
+  const rows=(votes||[]).map(numberKey).filter(Boolean);if(rows.length<2)return '';
+  const prefixes=rows.map(n=>/^(SV|GG|TG|RC|SH|H)\d+\/\1\d+$/.exec(n)?.[1]||'');
+  return prefixes[0]&&prefixes.every(p=>p===prefixes[0])?prefixes[0]:'';
+ }
  function consensus(votes,plausible){
   const scores=new Map();for(const n of votes){if(!plausible(n))continue;const k=numberKey(n),r=scores.get(k)||{number:n,count:0};r.count++;scores.set(k,r);}
   const rows=[...scores.values()].sort((a,b)=>b.count-a.count);
@@ -113,5 +118,5 @@
   }finally{src.delete();gray.delete();binary.delete();}
   scores.sort((a,b)=>b.score-a.score);return scores[0]?.score>=.82&&(!scores[1]||scores[0].score-scores[1].score>=.10)?scores[0].id:'';
  }
- root.CardEvidence={years,footerYears,collector,resolve,numberKey,consensus,orientation,enrich,rank,matchSymbols};
+ root.CardEvidence={years,footerYears,collector,resolve,galleryPrefix,numberKey,consensus,orientation,enrich,rank,matchSymbols};
 })(globalThis);

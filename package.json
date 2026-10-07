@@ -2,7 +2,7 @@
   "name": "ordner-scanner",
   "private": true,
   "scripts": {
-    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs && node tests/card-review.cjs && node tests/chinese-cards.cjs && node tests/paddle-reader.cjs && node tests/artwork-search.cjs && node tests/card-evidence.cjs && node tests/card-facts.cjs && node tests/footer-recovery.cjs && node tests/google-fallback.cjs && node tests/variant-picker.cjs && node tests/variant-research.cjs && node tests/link-evidence.mjs",
+    "test": "node tests/recognition.cjs && node tests/cardmarket.cjs && node tests/references.cjs && node tests/pages-links.cjs && node tests/card-separation.cjs && node tests/reference-fallback.cjs && node tests/correction-tools.cjs && node tests/identity-evidence.cjs && node tests/card-review.cjs && node tests/chinese-cards.cjs && node tests/paddle-reader.cjs && node tests/artwork-search.cjs && node tests/card-evidence.cjs && node tests/card-facts.cjs && node tests/footer-recovery.cjs && node tests/google-fallback.cjs && node tests/variant-picker.cjs && node tests/variant-research.cjs && node tests/link-evidence.mjs && node tests/print-references.cjs",
     "build": "npm run build:ocr && node build.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

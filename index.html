@@ -1264,6 +1264,8 @@ async function referenceCards(lang, name){
   return REFERENCE_CACHE.get(key);
 }
 function referenceCompatible(d, r){
+  const gallery=typeof CardEvidence!=="undefined"?CardEvidence.galleryPrefix(d.footerRetry?.numbers?.length?d.footerRetry.numbers:d.observedNumbers):"";
+  if(gallery && !(new RegExp("^"+gallery+"\\d+/"+gallery+"\\d+$")).test(r.number||""))return false;
   const normalize=n=>String(n || "").toUpperCase().replace(/\s/g, "").replace(/(^|\/)([A-Z]*)(0*)(\d+)/g,(_,sep,prefix,zero,digits)=>sep+prefix+Number(digits));
   if (d.langSure && d.lang !== r.lang) return false;
   const specificNumber=/^(?:(SV|GG|TG|RC|H|SH)\d+\/\1\d+|(?:SWSH|SVP|SM|XY|BW)\d+)$/.test(d.number || "");
@@ -1278,6 +1280,7 @@ function referenceNumberEvidence(d,r){
   return observed.size===1 && observed.has(key) && key===CardEvidence.numberKey(r.number);
 }
 async function referenceMetadata(ref){
+  if(ref.identityVerified && ref.features?.region==="full" && ["de","en","ja"].includes(ref.lang) && ref.setId && (ref.number||ref.vintageSet) && /^https:\/\/(?:www\.pokemon-card\.com\/card-search\/details\.php\/card\/\d+(?:\/|$)|cardmex-shop\.de\/)/.test(ref.source||"")) return ref;
   if (ref.lang === "ja"){
     const setId = ref.slug.slice(0, ref.slug.lastIndexOf("-"));
     // Old Japanese cards have a Pokédex number, not the western collector number.
@@ -1338,6 +1341,11 @@ function referenceMetadataCached(ref){
   if (!referenceMetaCache.has(key)) referenceMetaCache.set(key, referenceMetadata(ref).then(m => m, () => null));
   return referenceMetaCache.get(key);
 }
+let CURATED_PRINT_REFERENCES;
+function curatedPrintReferences(){
+  if(!CURATED_PRINT_REFERENCES) CURATED_PRINT_REFERENCES=fetch("curated-print-references.json").then(r=>r.ok?r.json():{cards:[]}).then(r=>r.cards||[]).catch(()=>{CURATED_PRINT_REFERENCES=null;return [];});
+  return CURATED_PRINT_REFERENCES;
+}
 async function applyReferenceMatch(item, photo, force=false){
   const d = item.data;
   if (!globalThis.CardMatcher || !window.cv?.ORB || (!["de","en","ja"].includes(d.lang) && d.langSure)) return;
@@ -1360,6 +1368,7 @@ async function applyReferenceMatch(item, photo, force=false){
     // No readable title: compare the cached catalogue directly, even on the first photo.
     if (!family) refs.push(...(await staticReferences()).filter(r => r.cachedImage &&
       (!d.langSure || r.lang === d.lang)).map(r => ({...r,image:r.cachedImage,directImage:true})));
+    refs.push(...(await curatedPrintReferences()).filter(r=>(!d.langSure||r.lang===d.lang)&&(!family||referenceNormalize(referenceFamily(r.name))===referenceNormalize(family)||referenceNormalize(referenceFamily(r.enName))===referenceNormalize(family))));
     refs = [...new Map(refs.map(r => [r.source,r])).values()];
     const candidates = (await Promise.all(refs.map(referenceMetadata))).filter(Boolean);
     // The supplementary site omits some prints. Keep the existing open catalogue as a fallback.
@@ -1396,11 +1405,11 @@ async function applyReferenceMatch(item, photo, force=false){
     }
     const r = ranked.list[0];
     if(r.lang === "de") r.set = (await getSets("de")).find(s=>s.id===r.setId)?.name || r.set;
-    let enName = r.name, enSet = r.set;
+    let enName = r.enName || r.name, enSet = r.enSet || r.set;
     if (r.lang === "de") {
-      const local=r.number.split("/")[0], id=/^[A-Z]/i.test(local)?local:String(parseInt(local,10));
+      const local=r.number.split("/")[0], id=r.setId==="svp"?String(Number(local.replace(/^SVP/i,""))):/^[A-Z]/i.test(local)?local:String(parseInt(local,10));
       const card = await fetch(`https://api.tcgdex.net/v2/en/cards/${r.setId}-${id}`).then(v=>v.ok?v.json():null).catch(()=>null);
-      enName=card?.name || d.enName || r.name; enSet=card?.set?.name || r.set;
+      enName=card?.name || r.enName || d.enName || r.name; enSet=card?.set?.name || r.enSet || r.set;
     }
     if(item.referenceRevision!==revision || identity()!==requestedIdentity) return;
     Object.assign(d,{name:r.name,enName,local:r.local || d.local,

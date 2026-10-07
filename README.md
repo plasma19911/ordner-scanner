@@ -195,3 +195,19 @@ und passender Sammlernummer im Produktpfad. Mehrere passende Produkte und
 separate V-Produktversionen bleiben zur manuellen Prüfung offen. Es werden keine
 Produktpfade aus Kartennamen erfunden. Unbekannte direkte Links bleiben als
 Google-Suche gekennzeichnet.
+
+### Bildvergleich für Promos und ältere japanische Karten
+
+`curated-print-references.json` ergänzt geprüfte Druckreferenzen mit vorberechneten
+Merkmalen der vollständigen Karte. Damit funktioniert der lokale Bildvergleich
+auch bei fehlender Sammlernummer und ohne erneuten Bilddownload. Enthalten sind
+Chimchar aus Space-Time Creation, die beiden unterschiedlichen Magby-Ausgaben
+aus Secret of the Lakes und Bastiodon the Defender (offizielle japanische Quellen)
+sowie die deutsche Krokel-Promo SVP192 (Cardmex-Bild, Identität zusätzlich anhand
+der offiziellen Pokémon-Datenbank geprüft). Die Quelldaten und Bildadressen
+stehen jeweils am Eintrag. Private Testfotos werden dafür nicht gespeichert.
+
+Mehrfach übereinstimmend gelesene Galerie-Präfixe wie SV, GG oder TG begrenzen die
+Bildkandidaten auch dann, wenn einzelne Ziffern noch unsicher sind. Der vollständige
+Bildvergleich muss anschließend weiterhin seine Qualitäts- und Abstandsschwellen
+erfüllen. Es werden weder fehlende Ziffern ergänzt noch Grenzwerte abgesenkt.
