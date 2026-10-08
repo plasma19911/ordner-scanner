@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>freshPika Ordner-Scanner (ohne KI)</title>
+<title>freshPika · Karten-Scanner</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
 <style>
 :root{--plum:#3b1f4a;--plum-2:#5a3270;--paper:#fbf8ff;--card:#fff;--ink:#221a2b;--muted:#6d6379;--line:#d6cfdf;--pika:#f6c945;--warn:#b5561c;--ok:#2f7d4f;
@@ -97,14 +97,41 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 .review-crops img{width:100%;height:140px;object-fit:contain;display:block}
 .review-actions{position:sticky;bottom:-16px;background:var(--card);padding:12px 0;display:flex;gap:10px;flex-wrap:wrap}
 .price-estimate{padding:10px 12px;margin:8px 0;border:1px solid #62827b;border-radius:8px}.price-estimate strong{display:block;margin-bottom:4px}
+
+/* Compact scanner layout */
+main{max-width:1120px;padding:18px 18px 40px}
+.app-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.brand{font-size:24px;font-weight:800;letter-spacing:-1px}.brand span{color:var(--plum-2)}
+.app-header h1{font-size:15px;font-weight:600;letter-spacing:0;color:var(--muted);margin:0}
+.drop{padding:22px 18px;border-radius:16px}.drop strong{font-size:22px;margin:0 0 2px}
+.drop .actions{display:grid;grid-template-columns:1fr 1fr;max-width:380px;margin:auto}.drop .btn{font-size:14px;padding:11px 10px}
+.drop-caption{display:block;font-size:13px;color:#d6c8df;margin-bottom:16px}
+.scanner-settings{margin:10px 0;color:var(--muted);font-size:13px}.scanner-settings>summary{padding:8px 0;cursor:pointer;width:fit-content}
+.settings-body{padding:12px 0}.settings-body .setup{margin-bottom:8px;font-size:13px}.auto-setting{display:block;padding:8px 0}
+.progress{height:5px;margin:12px 0 0}.status{font-size:13px;margin:8px 0 14px}
+.photo{margin-top:20px}.photo h2{font-size:16px;overflow-wrap:anywhere}
+.cards{grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px}
+.tile{padding:12px;gap:6px;border-radius:14px}.tilethumb img{height:210px}
+.tile .name{font-size:17px}.tile .meta{font-size:12px;margin-top:0}
+.price-estimate{padding:9px 10px;margin:2px 0;background:var(--paper);border-color:var(--line);font-size:14px}
+.price-estimate strong{font-size:12px;color:var(--muted);font-weight:600}.price-estimate .hint{font-size:11px;margin-top:5px}
+.card-info{border-top:1px solid var(--line);margin-top:6px;padding-top:8px}.card-info>summary,.export-list>summary{cursor:pointer;color:var(--muted);font-size:13px}
+.card-info-body{display:flex;flex-direction:column;gap:8px;padding:10px 0 4px}
+.export{margin-top:24px;padding:14px}.export h2{font-size:16px}.export-list{margin:8px 0}.export-list textarea{margin-top:8px}
+@media(max-width:540px){main{padding:14px 12px 32px}.app-header{margin-bottom:14px}.drop{padding:18px 12px}.actions{gap:8px}.cards{grid-template-columns:1fr}.tilethumb img{height:220px}.btn{padding:10px 16px}}
 </style>
 </head>
 <body>
 <main>
-  <h1>Karten erkennen und Cardmarket finden</h1>
-  <p class="lead">Einzelfotos oder Ordnerseiten: Der Scanner liest Namen, Nummern und Sprache und vergleicht Bilder mit verfügbaren Referenzen. Eindeutige Karten erhalten einen direkten Cardmarket-Link. Unklare Treffer kannst du unter „Korrigieren“ prüfen oder über Google suchen. Deine Fotos werden im Browser verarbeitet.</p>
-  <p class="hint" id="referenceStatus" aria-live="polite">Referenzsammlung wird geladen …</p>
-
+  <header class="app-header"><span class="brand">fresh<span>Pika</span></span><h1>Karten-Scanner</h1></header>
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
+    <strong>Karten scannen</strong><span class="drop-caption">Einzelkarte oder Ordnerseite</span>
+    <div class="actions">
+      <button class="btn" id="camBtn" type="button">Foto aufnehmen</button>
+      <button class="btn ghost" id="pickBtn" type="button">Bilder wählen</button>
+    </div>
+  </div>
+  <details class="scanner-settings"><summary>Einstellungen &amp; Hilfe</summary><div class="settings-body">
   <details class="setup" id="cseSetup">
     <summary id="cseSummary">Cardmarket-Links vollautomatisch (optional)</summary>
     <p>Ohne Einrichtung holst du den Link pro Karte mit „Cardmarket-Link holen“: Google öffnet sich, du kopierst den Cardmarket-Treffer, und die Seite trägt ihn ein. Einmal gefundene Links merkt sich die Seite.</p>
@@ -142,14 +169,9 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
     <p>Offizielle Beschreibungen: <a href="https://www.pokemon.cn/tcg/product/15582.html" target="_blank" rel="noopener">Gem Pack 1</a> · <a href="https://www.pokemon.cn/tcg/product/15518.html" target="_blank" rel="noopener">2</a> · <a href="https://www.pokemon.cn/tcg/product/15431.html" target="_blank" rel="noopener">3</a> · <a href="https://www.pokemon.cn/tcg/product/20382.html" target="_blank" rel="noopener">4</a> · <a href="https://www.pokemon.cn/tcg/product/21078.html" target="_blank" rel="noopener">5</a> · <a href="https://www.pokemon.cn/tcg/product/23048.html" target="_blank" rel="noopener">6</a>. Das ist eine Orientierung, kein vollständiger Kartenkatalog.</p>
   </details>
 
-  <label class="hint"><input type="checkbox" id="autoCards" checked> Eindeutig getrennte Karten automatisch verarbeiten</label>
-  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Fotos hinzufügen">
-    <strong>Fotos hier reinziehen</strong>
-    <div class="actions">
-      <button class="btn" id="camBtn" type="button">Foto aufnehmen</button>
-      <button class="btn ghost" id="pickBtn" type="button">Bilder wählen</button>
-    </div>
-  </div>
+  <label class="auto-setting"><input type="checkbox" id="autoCards" checked> Eindeutig getrennte Karten automatisch verarbeiten</label>
+<p class="hint" id="referenceStatus" aria-live="polite">Referenzen werden geladen …</p>
+</div></details>
   <input type="file" id="camInput" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="pickInput" accept="image/*" multiple class="hidden">
 
@@ -160,7 +182,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 
   <section class="export hidden" id="exportBox">
     <h2>Alle Links</h2>
-    <textarea id="exportText" readonly></textarea>
+    <details class="export-list"><summary>Linkliste anzeigen</summary><textarea id="exportText" readonly></textarea></details>
     <div class="actions" style="justify-content:flex-start;margin-top:10px">
       <button class="btn" id="excelBtn" type="button">Als Excel speichern</button>
       <button class="btn ghost" id="copyAll" type="button">Liste kopieren</button>
@@ -1860,6 +1882,7 @@ function setLabel(d){
 }
 function render(item){
   const d = item.data;
+  const infoOpen = item.el.querySelector("details.card-info")?.open || false;
   const wasOpen = item.el.querySelector("details.fix")?.open;
   if (wasOpen !== undefined) item.open = wasOpen;
   const langOpts = Object.entries(LANGS).map(([k, v]) => `<option value="${k}"${k === d.lang ? " selected" : ""}>${v}</option>`).join("");
@@ -1956,6 +1979,17 @@ function render(item){
         </div>
       </div>
     </details>`;
+
+  // Keep the main card view focused; preserve existing controls and listeners.
+  const info=document.createElement("details");info.className="card-info";info.open=infoOpen;
+  const summary=document.createElement("summary");summary.textContent="Details & Suchhilfen";info.append(summary);
+  const body=document.createElement("div");body.className="card-info-body";info.append(body);
+  item.el.querySelectorAll(":scope > a.google, :scope > .slug, :scope > .flag, :scope > .pos").forEach(el=>body.append(el));
+  if(body.children.length)item.el.insertBefore(info,item.el.querySelector("details.fix"));
+  if(d.factConflict||d.detailMismatch||d.ocrConflict){
+    const warning=document.createElement("div");warning.className="flag";warning.textContent="Angaben widersprüchlich – bitte prüfen.";
+    item.el.querySelector(".name").after(warning);
+  }
 
   item.el.querySelectorAll("[data-chinese-pick]").forEach(b=>b.addEventListener("click",async()=>{
     const s=chineseSuggestions[+b.dataset.chinesePick];
