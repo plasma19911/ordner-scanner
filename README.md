@@ -211,3 +211,19 @@ Mehrfach übereinstimmend gelesene Galerie-Präfixe wie SV, GG oder TG begrenzen
 Bildkandidaten auch dann, wenn einzelne Ziffern noch unsicher sind. Der vollständige
 Bildvergleich muss anschließend weiterhin seine Qualitäts- und Abstandsschwellen
 erfüllen. Es werden weder fehlende Ziffern ergänzt noch Grenzwerte abgesenkt.
+
+### Preiseinschätzung unter dem Kartenbild
+
+Die App lädt für eindeutig zugeordnete Katalogkarten automatisch kostenlose
+TCGdex-Preisdaten. Angezeigt werden Cardmarket-Richtwerte in Euro (bevorzugt
+30-Tage-Durchschnitt, ersatzweise Trend), getrennt nach Normal/Reverse/Holo,
+soweit die Daten diese Unterscheidung erlauben. Es entstehen keine zusätzlichen
+Preislinks; eine Anmeldung ist nicht erforderlich.
+
+Diese Werte sind **keine** nach Near Mint, Kartensprache oder Verkäuferland
+gefilterten Angebote und **nicht** das günstigste Angebotsviertel. Der Datenstand
+steht an der Karte. Daten älter als 14 Tage, widersprüchliche Zuordnungen,
+Sonderdrucke ohne verifizierte Preiszuordnung und fehlende Daten liefern keinen
+erfundenen Preis. Chinesische Gem-Pack-Versionen bleiben vorerst ohne Schätzung.
+Preisabfragen laufen im Hintergrund mit maximal vier parallelen Anfragen und
+einem einstündigen Sitzungscache. Ein Ausfall verhindert die Kartenerkennung nicht.

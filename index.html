@@ -96,6 +96,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 .review-crops button.selected{border-color:var(--pika)}
 .review-crops img{width:100%;height:140px;object-fit:contain;display:block}
 .review-actions{position:sticky;bottom:-16px;background:var(--card);padding:12px 0;display:flex;gap:10px;flex-wrap:wrap}
+.price-estimate{padding:10px 12px;margin:8px 0;border:1px solid #62827b;border-radius:8px}.price-estimate strong{display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -182,6 +183,7 @@ a.link.alt{background:transparent;color:var(--plum-2);border:2px solid var(--plu
 <script src="chinese-cards.js"></script>
 <script src="variant-picker.js"></script>
 <script src="variant-research.js"></script>
+<script src="price-estimate.js"></script>
 <script>
 const LANGS = {de:"Deutsch", en:"Englisch", ja:"Japanisch", zh:"Chinesisch"};
 const $ = s => document.querySelector(s);
@@ -1910,6 +1912,7 @@ function render(item){
     <button class="tilethumb" type="button" data-zoom aria-label="Karte groß anzeigen"><img src="${item.thumb}" alt="Gescannte Karte"></button>
     ${gem ? `<a class="google" href="${esc(cardmarketBrowseUrl(d))}" target="_blank" rel="noopener">Gem-Pack-Varianten auf Cardmarket</a>` : ""}
     ${chinese?.candidate && !chinese.conflict ? `<a class="google" href="${esc(chinese.candidate)}" target="_blank" rel="noopener">Passenden Cardmarket-Kandidaten vergleichen</a><div class="hint">${esc(chinese.label)}. Nummer und Holo-Muster auf der Produktseite prüfen; anschließend den Link unter „Korrigieren“ übernehmen.</div>` : ""}
+    <div data-price-estimate></div>
     ${item.pos ? `<div class="pos">${esc(item.pos)}</div>` : ""}
     <div class="name">${esc(d.name || "Unbekannte Karte")}</div>
     <div class="meta">${esc(d.vintageSet || setLabel(d))} · ${esc(d.number || (d.dexNo ? "No. " + d.dexNo : "Nr. ?"))} · ${LANGS[d.lang]}</div>
@@ -1975,6 +1978,7 @@ function render(item){
     const pk = d.picks[+b.dataset.pick]; d.number = numberOf(pk); d.numSure = true; d.ocrConflict=false; d.picks = []; d.observedName = ""; d.preferredSetId = pk.setId; d.nameTouched = false;
     await refreshLookup(item);
   }));
+  if(typeof PriceEstimate!=="undefined") PriceEstimate.mount(item.el.querySelector("[data-price-estimate]"),d);
   if(typeof VariantPicker!=="undefined") VariantPicker.mount(item.el.querySelector("[data-variants]"),d,()=>{render(item);renderExport();setStatus("Holo-/Druckversion für diese Karte bestätigt.");},openZoom);
   if(typeof VariantResearch!=="undefined" && !(typeof VariantPicker!=="undefined" && VariantPicker.group(d))) VariantResearch.mount(item.el.querySelector("[data-variant-research]"),d,()=>{render(item);renderExport();},openZoom);
   item.el.querySelectorAll("[data-fetch]").forEach(link=>link.addEventListener("click", event => {
