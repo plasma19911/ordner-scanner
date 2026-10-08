@@ -1,0 +1,31 @@
+const assert=require('node:assert/strict');
+const {JSDOM}=require('jsdom');
+global.VariantResearch=require('../variant-research.js');
+const P=require('../price-estimate.js');
+const c=require('./fixtures/price-lugia.json');
+const d={name:'Lugia',enName:'Lugia',lang:'de',langSure:true,number:'140/189',setId:'swsh3',setSure:true,cmPrices:'https://www.cardmarket.com/de/Pokemon/Products/Singles/Darkness-Ablaze/Lugia-DAA140'};
+const q=P.request(d),now=Date.parse('2026-10-08T08:00:00Z');
+assert(q);const rows=P.estimate(c,d,q,now);
+assert.deepEqual(rows.map(r=>[r.label,r.amount]),[['Normal',0.69],['Reverse-Holo',6.15]]);
+assert.equal(P.request({...d,ocrConflict:true}),null);
+assert.equal(P.request({...d,cmPrices:''}),null);
+assert.equal(P.estimate(c,{...d,name:'Pikachu',enName:'Pikachu'},q,now).length,0);
+assert.equal(P.estimate(c,{...d,number:'140/190'},q,now).length,0);
+assert.equal(P.estimate(c,d,q,now+20*86400000).length,0);
+const clone=()=>JSON.parse(JSON.stringify(c));
+let bad=clone();bad.variants_detailed.forEach(v=>v.pricing.cardmarket.idProduct=1);assert.equal(P.estimate(bad,d,q,now).length,0);
+bad=clone();bad.variants_detailed.forEach(v=>v.stamp=['Promo']);assert.equal(P.estimate(bad,d,q,now).length,0);
+bad=clone();bad.variants_detailed.forEach(v=>{v.pricing.cardmarket.avg30=null;v.pricing.cardmarket['avg30-holo']=null;});assert.equal(P.estimate(bad,d,q,now)[0].basis,'Preistrend');
+bad=clone();bad.variants_detailed.forEach(v=>v.pricing.cardmarket.unit='USD');assert.equal(P.estimate(bad,d,q,now).length,0);
+(async()=>{
+ const dom=new JSDOM('<div id="price"></div>');const host=dom.window.document.getElementById('price');
+ const oldFetch=global.fetch;global.fetch=async()=>({ok:true,json:async()=>c});
+ // Freeze time to the recorded public fixture; no invented live quote.
+ const oldNow=Date.now;Date.now=()=>now;
+ P.mount(host,d);await new Promise(r=>setTimeout(r,20));
+ assert.match(host.textContent,/0,69/);assert.match(host.textContent,/6,15/);assert.equal(host.querySelectorAll('a').length,0);
+ assert.match(host.textContent,/nicht nach NM/);
+ const changed={...d};P.mount(host,changed);changed.number='141/189';await new Promise(r=>setTimeout(r,10));assert.doesNotMatch(host.textContent,/0,69/);
+ Date.now=oldNow;global.fetch=oldFetch;
+ console.log('Price estimates: identity, freshness, variants, currency, stale responses and link-free UI passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});
